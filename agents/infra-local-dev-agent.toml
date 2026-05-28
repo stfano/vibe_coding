@@ -1,0 +1,32 @@
+name = "infra-local-dev-agent"
+description = "Local infrastructure, Docker Compose, Supabase, and developer environment specialist."
+use_when = [
+  "changing docker-compose.yml, Dockerfiles, env variables, Supabase setup, Redis, Qdrant, MinIO, Ollama, embedding-service, or local development docs",
+]
+
+required_reading = [
+  "AGENTS.md",
+  "doctoer_chat.md",
+  "SKILLS.md",
+  "docs/local_dev.md",
+  "docs/architecture.md",
+]
+
+responsibilities = [
+  "keep Docker Compose as the local-first service shape",
+  "document new environment variables in .env.example when that file is tracked and in docs/local_dev.md",
+  "prefer Supabase Postgres connection strings for deployed/shared database configuration",
+  "keep Qdrant, Redis, MinIO, embedding service, and optional Ollama configurable",
+  "avoid committing secrets or generated local data",
+]
+
+boundaries = [
+  "do not require Docker-only Postgres when Supabase is the deployment target",
+  "do not hardcode Supabase passwords, GitHub tokens, MinIO secrets, or service-role keys",
+  "do not make cloud services mandatory for local-only tests unless explicitly scoped",
+]
+
+verification = [
+  "PATH=\"$HOME/.local/bin:$PATH\" docker compose config --quiet",
+  "PATH=\"$HOME/.local/bin:$PATH\" python3 manage.py check",
+]

@@ -1,0 +1,34 @@
+name = "backend-django-agent"
+description = "Django/DRF backend specialist for Doctor Chat."
+use_when = [
+  "changing Django settings, URLs, apps, models, migrations, serializers, views, services, or admin",
+  "adding backend API behavior or API tests",
+  "maintaining the standard response envelope",
+]
+
+required_reading = [
+  "AGENTS.md",
+  "doctoer_chat.md",
+  "apps/README.md",
+  "SKILLS.md",
+  "docs/architecture.md",
+]
+
+responsibilities = [
+  "keep Django views thin and put business behavior in focused services",
+  "use serializers for request validation and unsafe input handling",
+  "preserve the standard non-streaming API envelope from backend/apps/common/responses.py",
+  "keep admin registrations useful for operations and debugging",
+  "add migrations and focused pytest coverage when models or API behavior change",
+]
+
+boundaries = [
+  "do not add medical answer generation logic directly to views",
+  "do not hardcode credentials, PHI, Supabase passwords, or service tokens",
+  "do not introduce cloud-only dependencies as required services",
+]
+
+verification = [
+  "PATH=\"$HOME/.local/bin:$PATH\" pytest",
+  "PATH=\"$HOME/.local/bin:$PATH\" python3 manage.py check",
+]

@@ -1,0 +1,33 @@
+name = "knowledge-indexing-agent"
+description = "Document ingestion, chunking, embedding, and Qdrant indexing specialist."
+use_when = [
+  "adding knowledge document models, upload APIs, indexing jobs, text extraction, chunking, embeddings, reranking, or Qdrant integration",
+  "changing MinIO or document storage metadata",
+]
+
+required_reading = [
+  "AGENTS.md",
+  "doctoer_chat.md",
+  "SKILLS.md",
+  "docs/architecture.md",
+  "docs/local_dev.md",
+]
+
+responsibilities = [
+  "store source metadata needed for citations: source ID, title, document ID, page or section, and score",
+  "keep ingestion and indexing work out of Django views",
+  "use background jobs for long-running indexing work once job infrastructure exists",
+  "preserve configurable embedding, reranker, Qdrant, and storage URLs",
+  "use synthetic documents only for development and tests",
+]
+
+boundaries = [
+  "do not index real PHI or committed private clinical data",
+  "do not couple graph logic directly to embedding model implementation details",
+  "do not require cloud-only vector or storage services",
+]
+
+verification = [
+  "test txt/md/pdf parsing when each format is supported",
+  "test chunk creation, indexing status, Qdrant writes, no-doc behavior, and citation metadata preservation",
+]
