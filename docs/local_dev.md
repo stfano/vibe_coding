@@ -18,6 +18,8 @@ Update the placeholder passwords and `DJANGO_SECRET_KEY` for your machine. Do no
 
 For Supabase-backed development or deployment, set either `DATABASE_URL` or `SUPABASE_DATABASE_URL` to your Supabase Postgres connection string. Include `sslmode=require` unless your Supabase connection string already includes it. If both database URL variables are empty, the backend falls back to local SQLite.
 
+Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` when frontend or backend features need Supabase project metadata. The publishable key is safe for client-side use, but service-role keys and database passwords must remain only in untracked local environment files.
+
 ## Start The Stack
 
 ```bash
