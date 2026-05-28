@@ -25,7 +25,7 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
 - Docker Compose stack shape for:
   - Django backend
   - React/Vite frontend
-  - PostgreSQL with pgvector image
+  - Supabase Postgres via `DATABASE_URL` or `SUPABASE_DATABASE_URL`
   - Redis
   - Qdrant
   - MinIO
@@ -134,6 +134,8 @@ cp .env.example .env
 ```
 
 Review the copied `.env` before starting services. Do not commit real secrets, access tokens, PHI, or machine-specific credentials.
+
+Set `DATABASE_URL` or `SUPABASE_DATABASE_URL` to a Supabase Postgres connection string for shared development or deployment. Leave both empty to use the backend's local SQLite fallback.
 
 Start the stack:
 

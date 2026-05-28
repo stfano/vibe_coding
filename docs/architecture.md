@@ -6,7 +6,7 @@ Milestone 2 establishes the local development shape and the first backend operat
 
 - `backend`: Django and DRF API service.
 - `frontend`: React, Vite, and TypeScript clinician workspace shell.
-- `postgres`: relational database using the pgvector image for future vector fields.
+- `supabase postgres`: managed Postgres for deployed or shared environments, configured through `DATABASE_URL` or `SUPABASE_DATABASE_URL`.
 - `redis`: future cache and background job broker.
 - `qdrant`: future primary vector store.
 - `minio`: future S3-compatible document storage.
@@ -29,6 +29,12 @@ Active model apps:
 Non-streaming APIs should use the standard response envelope in `apps.common.responses`.
 
 The chat endpoint currently returns a no-knowledge placeholder when no approved documents are indexed. It does not call an LLM and does not execute a LangGraph workflow yet.
+
+## Database Configuration
+
+The backend prefers a Postgres connection string in `DATABASE_URL`, falling back to `SUPABASE_DATABASE_URL`. This is intended for Supabase Postgres in deployment. If neither variable is set, the backend uses local SQLite for early development and unit tests.
+
+The local Docker Compose stack no longer starts a Postgres container. It keeps local open-source services for Redis, Qdrant, MinIO, embedding service, and optional Ollama.
 
 ## Out Of Scope For Milestone 2
 

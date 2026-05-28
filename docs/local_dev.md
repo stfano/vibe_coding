@@ -16,6 +16,8 @@ cp .env.example .env
 
 Update the placeholder passwords and `DJANGO_SECRET_KEY` for your machine. Do not commit `.env`.
 
+For Supabase-backed development or deployment, set either `DATABASE_URL` or `SUPABASE_DATABASE_URL` to your Supabase Postgres connection string. Include `sslmode=require` unless your Supabase connection string already includes it. If both database URL variables are empty, the backend falls back to local SQLite.
+
 ## Start The Stack
 
 ```bash
@@ -79,11 +81,10 @@ npm --prefix frontend run build
 
 If Compose cannot find environment variables, confirm `.env` exists at the repository root.
 
-If Postgres credentials change after the volume is created, remove the local volume before restarting:
+If you switch from SQLite to Supabase, run migrations after setting `DATABASE_URL` or `SUPABASE_DATABASE_URL`:
 
 ```bash
-docker compose down -v
-docker compose up --build
+docker compose exec backend python manage.py migrate
 ```
 
 If the frontend shows `Backend unavailable`, confirm the backend is running and `VITE_API_BASE_URL` points to the backend origin.

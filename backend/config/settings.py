@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
 
 from dotenv import load_dotenv
 
@@ -20,6 +21,28 @@ def env(name: str, default: str | None = None, *, required: bool = False) -> str
 
 def env_bool(name: str, default: bool = False) -> bool:
     return os.environ.get(name, str(default)).lower() in {"1", "true", "yes", "on"}
+
+
+def database_from_url(url: str) -> dict[str, object]:
+    parsed = urlparse(url)
+    if parsed.scheme not in {"postgres", "postgresql"}:
+        raise RuntimeError("DATABASE_URL must use postgres:// or postgresql://")
+
+    options = {}
+    query = parse_qs(parsed.query)
+    if sslmode := query.get("sslmode", [None])[0]:
+        options["sslmode"] = sslmode
+
+    return {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": unquote(parsed.path.lstrip("/") or "postgres"),
+        "USER": unquote(parsed.username or ""),
+        "PASSWORD": unquote(parsed.password or ""),
+        "HOST": parsed.hostname or "",
+        "PORT": str(parsed.port or 5432),
+        "CONN_MAX_AGE": int(env("DATABASE_CONN_MAX_AGE", "60")),
+        "OPTIONS": options,
+    }
 
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", required=True)
@@ -85,7 +108,11 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-if env("POSTGRES_HOST", ""):
+DATABASE_URL = env("DATABASE_URL", "") or env("SUPABASE_DATABASE_URL", "")
+
+if DATABASE_URL:
+    DATABASES = {"default": database_from_url(DATABASE_URL)}
+elif env("POSTGRES_HOST", ""):
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
