@@ -27,12 +27,11 @@ fi
 git add -A
 
 if git diff --cached --quiet; then
-  echo "No staged changes to commit."
-  exit 0
+  echo "No staged changes to commit. Pushing current develop branch if needed."
+else
+  message="${1:-chore: update project state}"
+  git commit -m "$message"
 fi
-
-message="${1:-chore: update project state}"
-git commit -m "$message"
 
 auth_header="$(
   python3 - <<'PY'
