@@ -34,16 +34,18 @@ fi
 message="${1:-chore: update project state}"
 git commit -m "$message"
 
-askpass="$(mktemp)"
-trap 'rm -f "$askpass"' EXIT
-cat > "$askpass" <<'EOF'
-#!/usr/bin/env bash
-case "$1" in
-  *Username*) printf '%s\n' "x-access-token" ;;
-  *Password*) printf '%s\n' "${GITHUB_PERSONAL_ACCESS_TOKEN}" ;;
-  *) printf '\n' ;;
-esac
-EOF
-chmod +x "$askpass"
+auth_header="$(
+  python3 - <<'PY'
+import base64
+import os
 
-GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 git push -u origin develop
+token = os.environ["GITHUB_PERSONAL_ACCESS_TOKEN"]
+print("Authorization: Basic " + base64.b64encode(f"x-access-token:{token}".encode()).decode())
+PY
+)"
+
+GIT_CONFIG_COUNT=1 \
+GIT_CONFIG_KEY_0="http.https://github.com/.extraheader" \
+GIT_CONFIG_VALUE_0="$auth_header" \
+GIT_TERMINAL_PROMPT=0 \
+git push -u origin develop
