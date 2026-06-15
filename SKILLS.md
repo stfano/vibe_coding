@@ -84,8 +84,8 @@ Use when adding infrastructure, search, embedding, or model runtime.
 
 Preferred services:
 - PostgreSQL for relational data
-- pgvector for optional relational vector fields
-- Qdrant for primary vector retrieval
+- pgvector for MVP vector retrieval in Supabase/Postgres
+- dedicated vector stores only as future optional adapters if corpus scale, hybrid retrieval, or independent vector scaling requires them
 - Redis for cache and jobs
 - MinIO for document storage
 - sentence-transformers FastAPI service for embeddings and reranking
@@ -177,7 +177,7 @@ Avoid broad prompts like:
 - "add RAG"
 
 Prefer prompts like:
-- "Implement document upload and indexing status only. Add tests for txt/md upload, chunk creation, and Qdrant indexing job enqueue. Do not implement answer generation yet."
+- "Implement document upload and indexing status only. Add tests for txt/md upload, chunk creation, and pgvector indexing job enqueue. Do not implement answer generation yet."
 
 ## Skill: Verification Before Handoff
 
@@ -190,3 +190,21 @@ Required:
 - If verification was not possible, say why.
 
 Never say tests pass unless the command was run successfully in the current turn.
+
+## Skill: Automatic Summary Commit And Push
+
+Use after Codex changes repository files.
+
+Checklist:
+1. Inspect `git status --short` and separate current-task changes from unrelated dirty files.
+2. Run the narrowest relevant verification command plus `git diff --check`.
+3. Confirm the current branch is `develop`.
+4. Confirm no staged file is `.env`, generated local data, cache output, PHI, or a secret-bearing file.
+5. Stage only current-task files.
+6. Commit with a small conventional prefix such as `docs:`, `feat:`, `fix:`, `test:`, `refactor:`, or `chore:`.
+7. Push `develop` to `origin`.
+8. In the final response, include changed-file summary, verification command output summary, commit hash, and push result.
+
+Stop and report instead of committing or pushing when verification fails, branch
+is not `develop`, unrelated changes cannot be separated safely, credentials are
+missing, push is rejected, or a secret/local data file would be included.

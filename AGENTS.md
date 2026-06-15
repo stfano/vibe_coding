@@ -58,8 +58,8 @@ Frontend:
 AI/RAG:
 - LangGraph
 - LangChain
-- Qdrant or Chroma
-- PostgreSQL with pgvector where useful
+- PostgreSQL with pgvector for MVP vector retrieval
+- provider-neutral vector store adapters so a dedicated vector store can be introduced later if needed
 - sentence-transformers based embedding/reranker service
 - Ollama or vLLM for local LLM runtime
 - MinIO for document storage
@@ -85,6 +85,34 @@ Do not:
 - add cloud-only dependencies as required services
 - remove safety checks to simplify implementation
 - hide failures or claim tests pass without running them
+
+## Automatic Handoff And Git Push
+
+Standing user preference: after Codex changes repository files, it should finish
+the turn by summarizing the changed files, running the narrowest relevant
+verification, committing the scoped changes on `develop`, and pushing `develop`
+to `origin` without waiting for a separate prompt.
+
+Required sequence:
+
+1. Review `git status --short` and identify files changed by the current task.
+2. Run the narrowest relevant verification command and `git diff --check`.
+3. Summarize changed files and verification results in the final response.
+4. Commit only the scoped task changes with an appropriate prefix.
+5. Push the `develop` branch to `origin`.
+6. Report the commit hash and push result.
+
+Stop and report instead of committing or pushing if:
+
+- the current branch is not `develop`
+- verification fails
+- `git diff --check` fails
+- staged files include secrets, `.env`, generated local data, caches, or PHI
+- unrelated dirty files would be included in the commit
+- pulling/rebasing is required to avoid overwriting remote work
+- the push is rejected or requires credentials/approval
+
+Never use destructive git commands to satisfy this workflow.
 
 ## Backend Conventions
 
@@ -125,7 +153,7 @@ Minimum tests:
 - prompt version lookup
 - API envelope shape
 
-Use Docker-backed integration tests for Qdrant/Postgres/Redis once those services exist.
+Use Docker-backed or Supabase-backed integration tests for Postgres/pgvector/Redis once those services exist.
 
 ## Documentation Expectations
 
@@ -139,7 +167,7 @@ Keep these docs current:
 
 ## Commit Guidance
 
-Use small commits when the user asks for commits. Suggested prefixes:
+Use small commits. Suggested prefixes:
 
 - `docs:`
 - `feat:`
