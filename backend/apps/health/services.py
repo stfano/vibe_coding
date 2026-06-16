@@ -5,7 +5,7 @@ def get_health_payload() -> dict[str, object]:
         "dependencies": {
             "database": "configured",
             "redis": "configured",
-            "qdrant": "configured",
+            "vector_store": "pgvector",
             "minio": "configured",
             "embedding_service": "configured",
             "ollama": "optional",

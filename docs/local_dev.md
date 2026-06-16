@@ -20,6 +20,11 @@ For Supabase-backed development or deployment, set either `DATABASE_URL` or `SUP
 
 Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` when frontend or backend features need Supabase project metadata. The publishable key is safe for client-side use, but service-role keys and database passwords must remain only in untracked local environment files.
 
+MVP vector retrieval uses Supabase/Postgres `pgvector`. The SQLite fallback is
+fine for non-RAG backend work and unit tests, but document embedding search
+requires `DATABASE_URL` or `SUPABASE_DATABASE_URL` to point at a Postgres
+database with the `vector` extension enabled.
+
 ## Start The Stack
 
 ```bash
@@ -32,7 +37,6 @@ Main URLs:
 - Backend health: http://localhost:8000/api/health/
 - Backend chat: http://localhost:8000/api/chat/messages/
 - Django admin: http://localhost:8000/admin/
-- Qdrant: http://localhost:6333/dashboard
 - MinIO console: http://localhost:9001
 - Embedding service health: http://localhost:8080/health
 
@@ -60,6 +64,30 @@ Run tests:
 
 ```bash
 docker compose exec backend pytest
+```
+
+Run the HiDoc pediatric sample ingestion against the configured database:
+
+```bash
+docker compose exec backend python manage.py ingest_hidoc_qna --department 소아과 --limit 100 --workers 5 --mode sample
+```
+
+Run full HiDoc department ingestion:
+
+```bash
+docker compose exec backend python manage.py ingest_hidoc_qna --all --workers 10 --mode full
+```
+
+Monitor ingestion progress in real time:
+
+```bash
+tail -f ingestion.log
+```
+
+For parser/network verification without database writes:
+
+```bash
+docker compose exec backend python manage.py ingest_hidoc_qna --department 소아과 --limit 5 --workers 2 --mode sample --dry-run --max-pages 1 --skip-total-discovery
 ```
 
 Run backend tests outside Docker:

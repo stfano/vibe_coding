@@ -8,10 +8,16 @@ Milestone 2 establishes the local development shape and the first backend operat
 - `frontend`: React, Vite, and TypeScript clinician workspace shell.
 - `supabase postgres`: managed Postgres for deployed or shared environments, configured through `DATABASE_URL` or `SUPABASE_DATABASE_URL`.
 - `redis`: future cache and background job broker.
-- `qdrant`: future primary vector store.
 - `minio`: future S3-compatible document storage.
-- `embedding-service`: FastAPI scaffold for future sentence-transformers embeddings and reranking.
+- `embedding-service`: FastAPI scaffold with health and deterministic `/embed` endpoint; future sentence-transformers embeddings and reranking can replace the deterministic adapter.
 - `ollama`: optional local LLM runtime behind the `llm` Compose profile.
+
+MVP vector retrieval should use Supabase/Postgres with `pgvector`. This keeps
+document metadata, chunk rows, embeddings, indexing status, chat logs, and
+evaluation records in one managed database for the first deployment. If corpus
+size, filtered vector recall, hybrid retrieval, or independent vector scaling
+becomes a bottleneck, add a dedicated vector store behind a provider-neutral
+vector index adapter.
 
 ## Backend App Boundaries
 
@@ -25,20 +31,42 @@ Active model apps:
 - `apps.authx`: Django auth extension via `Department`, `Role`, and `UserProfile`.
 - `apps.loggingx`: API request, login, service, and chat logs.
 - `apps.chat`: chat session and message persistence.
+- `apps.knowledge`: external Q&A records, knowledge sources, documents, chunks, and index jobs.
+- `apps.rag`: embedding adapter boundary and citation-only retrieval service.
 
 Non-streaming APIs should use the standard response envelope in `apps.common.responses`.
 
-The chat endpoint currently returns a no-knowledge placeholder when no approved documents are indexed. It does not call an LLM and does not execute a LangGraph workflow yet.
+The chat endpoint currently returns a no-knowledge placeholder and is not wired
+to retrieval. The retrieval slice can search indexed chunks and return previews
+with citation metadata for smoke testing, but it does not call an LLM and does
+not execute a LangGraph workflow yet.
 
 ## Database Configuration
 
 The backend prefers a Postgres connection string in `DATABASE_URL`, falling back to `SUPABASE_DATABASE_URL`. This is intended for Supabase Postgres in deployment. If neither variable is set, the backend uses local SQLite for early development and unit tests.
 
-The local Docker Compose stack no longer starts a Postgres container. It keeps local open-source services for Redis, Qdrant, MinIO, embedding service, and optional Ollama.
+The local Docker Compose stack no longer starts a Postgres or vector database container.
+It keeps local open-source services for Redis, MinIO, embedding service, and
+optional Ollama. SQLite can support non-RAG local work, but vector indexing and
+retrieval require a Postgres database with the `pgvector` extension, such as
+Supabase Postgres.
+
+## External Q&A Indexing Slice
+
+HiDoc sample ingestion stores answer-level rows in `ExternalQnaRecord`. The
+`index_external_qna` management command converts those rows into
+`KnowledgeDocument` and `KnowledgeChunk` records, stores citation metadata, and
+records each run in `IndexJob`. The first supported retrieval surface is the
+`search_knowledge` management command, which returns chunk previews and
+citations only.
+
+Use deterministic embeddings for repeatable tests and early local runs. Use the
+HTTP embedding adapter only when `EMBEDDING_PROVIDER=http` and
+`EMBEDDING_SERVICE_URL` points at a running embedding service.
 
 ## Out Of Scope For Milestone 2
 
 - Medical answer generation
-- RAG retrieval
-- Document upload and indexing
+- Chat-integrated RAG retrieval
+- Document upload and parsing
 - LangGraph workflow execution

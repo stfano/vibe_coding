@@ -35,12 +35,12 @@ Hard constraints:
 Reference architecture:
 - backend: Django + DRF + Channels or SSE streaming
 - frontend: React + Vite + TypeScript
-- db: PostgreSQL with pgvector extension for relational and optional vector operations
-- vector store: Qdrant for primary semantic retrieval, or Chroma for a simpler MVP if Qdrant is too much for the first slice
+- db: Supabase/PostgreSQL with pgvector extension for relational records and MVP vector retrieval
+- vector store: pgvector for the first deployment; keep vector access behind an adapter so a dedicated vector store can be added later if scale or hybrid retrieval requires it
 - cache/queue: Redis + Django RQ or Celery
 - object storage: MinIO for uploaded documents
 - local model runtime: Ollama for MVP or vLLM/OpenAI-compatible local server for production-like runs
-- embedding/reranker service: FastAPI service using sentence-transformers models such as BAAI/bge-m3 and BAAI reranker family, model names controlled by env vars
+- embedding/reranker service: FastAPI service using Hugging Face sentence-transformers models such as mykor/KURE-v1 for Korean retrieval and BAAI reranker family, model names controlled by env vars
 - observability: structured JSON logs, request IDs, LangGraph node traces, admin-visible chat/debug logs
 
 Project structure:
@@ -105,7 +105,7 @@ Implementation plan:
 Start with a thin vertical slice, not the full system.
 
 Milestone 1:
-- Create Docker Compose with backend, frontend, postgres, redis, qdrant, minio, embedding service, and optional ollama.
+- Create Docker Compose with backend, frontend, Supabase/Postgres configuration, redis, minio, embedding service, and optional ollama.
 - Create Django project and apps listed above.
 - Add health checks and basic settings via env vars.
 - Add pytest and backend formatting/linting.
@@ -117,13 +117,13 @@ Milestone 2:
 - Implement Django Admin registrations.
 
 Milestone 3:
-- Implement document upload to MinIO, text extraction for txt/md/pdf, chunking, embedding, and Qdrant indexing.
+- Implement document upload to MinIO, text extraction for txt/md/pdf, chunking, embedding, and pgvector indexing.
 - Add indexing status and admin listing.
 - Seed 3 small synthetic medical knowledge docs for development only.
 
 Milestone 4:
 - Implement LangGraph chat workflow with the nodes listed above.
-- Use LangChain retriever abstraction over Qdrant.
+- Use LangChain retriever abstraction over pgvector or a provider-neutral vector index adapter.
 - Add local embedding and reranking calls.
 - Add citations and low-confidence behavior.
 
@@ -171,7 +171,7 @@ References:
 - LangGraph graph API: https://docs.langchain.com/oss/python/langgraph/graph-api
 - LangGraph `StateGraph` reference: https://reference.langchain.com/python/langgraph/graph/state/StateGraph
 - LangChain retrievers: https://docs.langchain.com/oss/python/integrations/retrievers/index
-- Qdrant Docker quickstart: https://qdrant.tech/documentation/quick-start/
+- Supabase vector indexes: https://supabase.com/docs/guides/ai/vector-indexes/hnsw-indexes
 - Docker Compose quickstart: https://docs.docker.com/compose/gettingstarted/
 
 ### Recommended Service Layout
@@ -180,9 +180,8 @@ References:
 | --- | --- |
 | `backend` | Django/DRF API, admin, graph runner, auth, logs |
 | `frontend` | React/Vite chat and admin UI |
-| `postgres` | relational DB; optionally pgvector |
+| `postgres` | relational DB and MVP pgvector retrieval store |
 | `redis` | cache, session state, job broker |
-| `qdrant` | primary vector search engine |
 | `minio` | local S3-compatible document storage |
 | `embedding-service` | local embeddings/reranking over sentence-transformers |
 | `ollama` or `vllm` | local LLM runtime |
@@ -225,7 +224,7 @@ Use vibe coding, but keep the work bounded. Each prompt should ask Codex for one
 1. Prompt 1: scaffold Docker + backend + frontend + health checks.
 2. Prompt 2: add auth/logging/admin patterns.
 3. Prompt 3: add chat session/message API and minimal UI.
-4. Prompt 4: add document upload, chunking, embedding, and Qdrant indexing.
+4. Prompt 4: add document upload, chunking, embedding, and pgvector indexing.
 5. Prompt 5: add LangGraph workflow with no-doc and low-confidence responses.
 6. Prompt 6: add retrieval/rerank/citation answer synthesis.
 7. Prompt 7: add streaming and debug trace viewer.

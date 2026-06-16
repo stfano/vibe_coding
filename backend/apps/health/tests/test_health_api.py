@@ -16,7 +16,7 @@ def test_health_endpoint_returns_standard_envelope():
             "dependencies": {
                 "database": "configured",
                 "redis": "configured",
-                "qdrant": "configured",
+                "vector_store": "pgvector",
                 "minio": "configured",
                 "embedding_service": "configured",
                 "ollama": "optional",

@@ -13,7 +13,10 @@ services:
       SUPABASE_DATABASE_URL: ${SUPABASE_DATABASE_URL:-}
       DATABASE_CONN_MAX_AGE: ${DATABASE_CONN_MAX_AGE:-60}
       REDIS_URL: redis://redis:6379/0
-      QDRANT_URL: http://qdrant:6333
+      VECTOR_STORE_BACKEND: ${VECTOR_STORE_BACKEND:-pgvector}
+      VECTOR_DIMENSIONS: ${VECTOR_DIMENSIONS:-1024}
+      VECTOR_DISTANCE_METRIC: ${VECTOR_DISTANCE_METRIC:-cosine}
+      VECTOR_SIMILARITY_THRESHOLD: ${VECTOR_SIMILARITY_THRESHOLD:-0.7}
       MINIO_ENDPOINT: minio:9000
       MINIO_BUCKET: ${MINIO_BUCKET:-doctor-chat-documents}
       EMBEDDING_SERVICE_URL: http://embedding-service:8080
@@ -25,8 +28,6 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-      qdrant:
-        condition: service_started
       minio:
         condition: service_started
       embedding-service:
@@ -50,7 +51,7 @@ services:
     build:
       context: ./embedding-service
     environment:
-      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-BAAI/bge-small-en-v1.5}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-mykor/KURE-v1}
       RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-base}
     ports:
       - "8080:8080"
@@ -66,14 +67,6 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-
-  qdrant:
-    image: qdrant/qdrant:latest
-    ports:
-      - "6333:6333"
-      - "6334:6334"
-    volumes:
-      - qdrant_data:/qdrant/storage
 
   minio:
     image: minio/minio:latest
@@ -99,6 +92,5 @@ services:
 volumes:
   frontend_node_modules:
   redis_data:
-  qdrant_data:
   minio_data:
   ollama_data:

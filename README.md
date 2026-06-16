@@ -2,7 +2,7 @@
 
 Doctor Chat is a Docker-first clinician-support chatbot platform scaffold. It is inspired by Rubicon operating patterns, but rebuilt for a local open-source stack with Django, React, LangGraph/LangChain-ready app boundaries, and medical safety constraints.
 
-The current repository is an early vertical slice. It can run a backend health API, a minimal React workspace, Django Admin registrations, operational logging models, auth profile models, and a non-streaming chat endpoint that safely returns a no-knowledge response because no approved medical documents are indexed yet.
+The current repository is an early vertical slice. It can run a backend health API, a minimal React workspace, Django Admin registrations, operational logging models, auth profile models, external Q&A ingestion, knowledge chunk indexing, citation-only retrieval smoke tests, and a non-streaming chat endpoint that safely returns a no-knowledge response because no approved medical documents are wired into chat yet.
 
 ## Clinical Safety Position
 
@@ -11,7 +11,7 @@ This project is for clinician support and medical knowledge retrieval. It must n
 Current chat behavior is intentionally conservative:
 
 - It does not call an LLM.
-- It does not perform RAG retrieval yet.
+- It does not perform RAG answer generation yet.
 - It returns a safe no-knowledge response when no approved documents are indexed.
 - It includes a clinician-judgment safety notice.
 - It persists chat messages and chat log metadata for audit/debug work.
@@ -27,7 +27,6 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
   - React/Vite frontend
   - Supabase Postgres via `DATABASE_URL` or `SUPABASE_DATABASE_URL`
   - Redis
-  - Qdrant
   - MinIO
   - FastAPI embedding-service scaffold
   - optional Ollama profile
@@ -39,6 +38,10 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
   - API request logging middleware with request IDs
   - chat session/message models
   - safe no-indexed-documents chat endpoint
+  - HiDoc answer-level Q&A ingestion into `ExternalQnaRecord`
+  - Q&A-to-knowledge indexing into documents/chunks/index jobs
+  - deterministic and HTTP embedding adapter boundaries
+  - citation-only chunk retrieval command
   - Django Admin registration for active models
 - React/Vite frontend with:
   - backend health status panel
@@ -63,10 +66,9 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
 ### Not Implemented Yet
 
 - LangGraph workflow execution
-- LangChain retrievers, prompt templates, and citation formatting
-- document upload, parsing, chunking, and indexing
-- Qdrant retrieval
-- embedding/reranking endpoints beyond health scaffold
+- LangChain retrievers, prompt templates, and citation formatting inside chat
+- document upload and parsing
+- production embedding/reranking models beyond deterministic scaffold
 - prompt registry/versioning
 - evaluation/golden-set workflows
 - streaming chat over SSE or WebSocket
@@ -85,8 +87,8 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
 │       ├── authx/           # department, role, user profile
 │       ├── loggingx/        # API/login/service/chat logs
 │       ├── chat/            # chat session/message API and services
-│       ├── knowledge/       # future document/indexing app
-│       ├── rag/             # future LangChain retrieval helpers
+│       ├── knowledge/       # external Q&A ingestion and knowledge indexing
+│       ├── rag/             # embedding adapters and citation-only retrieval helpers
 │       ├── graph/           # future LangGraph workflow
 │       ├── evaluation/      # future evaluation flows
 │       └── adminx/          # future admin-facing APIs
@@ -161,7 +163,6 @@ Main URLs:
 - Backend health: http://localhost:8000/api/health/
 - Chat API: http://localhost:8000/api/chat/messages/
 - Django Admin: http://localhost:8000/admin/
-- Qdrant dashboard: http://localhost:6333/dashboard
 - MinIO console: http://localhost:9001
 - Embedding service health: http://localhost:8080/health
 
@@ -194,6 +195,73 @@ Docker-based backend tests:
 docker compose exec backend pytest
 ```
 
+## HiDoc Q&A Ingestion
+
+The backend includes a Django management command for collecting answer-level
+HiDoc Q&A records into the configured database. In Supabase-backed runs, set
+`DATABASE_URL` or `SUPABASE_DATABASE_URL`, run migrations, then run ingestion.
+Progress is appended to `ingestion.log` and can be watched with `tail -f`.
+
+Pediatric 100-record sample:
+
+```bash
+cd backend
+python manage.py migrate
+python manage.py ingest_hidoc_qna --department 소아과 --limit 100 --workers 5 --mode sample
+```
+
+Full department collection:
+
+```bash
+cd backend
+python manage.py ingest_hidoc_qna --all --workers 10 --mode full
+```
+
+Monitor progress:
+
+```bash
+tail -f ingestion.log
+```
+
+Useful safe verification command:
+
+```bash
+cd backend
+python manage.py ingest_hidoc_qna --department 소아과 --limit 5 --workers 2 --mode sample --dry-run --max-pages 1 --skip-total-discovery
+```
+
+The command stores one row per question/answer pair in
+`knowledge_externalqnarecord`. Deduplication is based on the stable external ID
+`hidoc:<question_id>:<answer_id>`; repeated runs update the same row rather than
+creating duplicates. A separate `content_hash` tracks changes to title,
+question, and answer content.
+
+HiDoc content is third-party medical Q&A content. Treat it as a candidate or
+evaluation corpus unless explicit source permission covers ingestion, storage,
+embedding, RAG use, citations, and deployment.
+
+## Knowledge Indexing And Retrieval Smoke Test
+
+After the pediatric sample exists in `knowledge_externalqnarecord`, index those
+100 rows into knowledge documents/chunks:
+
+```bash
+cd backend
+python manage.py index_external_qna --source hidoc --department-code PD000 --limit 100
+```
+
+Run citation-only retrieval:
+
+```bash
+cd backend
+python manage.py search_knowledge --query "아기 고환 물집 아기띠" --top-k 5 --source hidoc --department-code PD000
+```
+
+The search command returns previews and citation metadata. It does not call an
+LLM and does not generate medical advice. Re-running `index_external_qna` is
+idempotent: the same document rows are updated and their chunks are replaced, so
+duplicate chunks are not created.
+
 ## Development Rules
 
 Before making non-trivial changes, read:
@@ -220,7 +288,7 @@ When adding medical RAG behavior:
 1. Add knowledge document models, upload API, and indexing job status.
 2. Implement text extraction/chunking for approved synthetic documents.
 3. Add embedding-service `/embed` and optional `/rerank` endpoints.
-4. Wire Qdrant indexing and retrieval behind backend services.
+4. Wire pgvector indexing and retrieval behind backend services.
 5. Implement LangGraph state, nodes, conditional routing, and graph-run metadata.
 6. Add citation formatting, low-confidence behavior, and red-flag routing tests.
 7. Add streaming chat and an operational debug/log viewer in the frontend.
