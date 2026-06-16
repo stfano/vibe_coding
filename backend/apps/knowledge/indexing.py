@@ -225,6 +225,11 @@ class ExternalQnaIndexer:
 
     @transaction.atomic
     def _index_one_record(self, source: KnowledgeSource, record: ExternalQnaRecord) -> int:
+        existing_document = KnowledgeDocument.objects.filter(
+            source=source,
+            source_external_id=record.external_id,
+        ).first()
+        next_status = _next_document_status(existing_document, record.content_hash)
         document, _ = KnowledgeDocument.objects.update_or_create(
             source=source,
             source_external_id=record.external_id,
@@ -236,7 +241,7 @@ class ExternalQnaIndexer:
                 "department_code": record.source_department_code,
                 "source_url": record.source_url,
                 "content_hash": record.content_hash,
-                "status": KnowledgeDocument.Status.NEEDS_REVIEW,
+                "status": next_status,
                 "metadata": {
                     "source_question_id": record.source_question_id,
                     "source_answer_id": record.source_answer_id,
@@ -400,3 +405,13 @@ def _sha256(text: str) -> str:
 def _append_error(existing: str, identifier: str, message: str) -> str:
     entry = f"{identifier}: {message[:240]}"
     return "\n".join(part for part in (existing, entry) if part).strip()[:4000]
+
+
+def _next_document_status(document: KnowledgeDocument | None, content_hash: str) -> str:
+    if document is None:
+        return KnowledgeDocument.Status.NEEDS_REVIEW
+    if document.status == KnowledgeDocument.Status.DISABLED:
+        return KnowledgeDocument.Status.DISABLED
+    if document.content_hash != content_hash:
+        return KnowledgeDocument.Status.NEEDS_REVIEW
+    return document.status

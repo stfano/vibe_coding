@@ -64,6 +64,12 @@ Use deterministic embeddings for repeatable tests and early local runs. Use the
 HTTP embedding adapter only when `EMBEDDING_PROVIDER=http` and
 `EMBEDDING_SERVICE_URL` points at a running embedding service.
 
+Retrieval is gated by document review status. Default retrieval includes only
+`KnowledgeDocument.status = ready`; `needs_review` can be included only in admin
+verification mode, and `disabled` is always excluded. Verification endpoints and
+commands return snippets, scores, and citation metadata only. They do not call
+an LLM or synthesize medical guidance.
+
 ## Out Of Scope For Milestone 2
 
 - Medical answer generation

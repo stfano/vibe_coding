@@ -4,7 +4,7 @@ import pytest
 from django.utils import timezone
 
 from apps.knowledge.indexing import ExternalQnaIndexer
-from apps.knowledge.models import ExternalQnaRecord
+from apps.knowledge.models import ExternalQnaRecord, KnowledgeDocument
 from apps.rag.embeddings import DeterministicEmbeddingAdapter, build_embedding_payload
 from apps.rag.retrieval import search_knowledge
 
@@ -55,6 +55,8 @@ def test_deterministic_embedding_adapter_returns_stable_dimensions():
 
 @pytest.mark.django_db
 def test_search_knowledge_returns_chunk_preview_and_citation(indexed_qna_record):
+    KnowledgeDocument.objects.update(status=KnowledgeDocument.Status.READY)
+
     results = search_knowledge(
         "아기 고환 물집 아기띠",
         top_k=3,
@@ -66,7 +68,48 @@ def test_search_knowledge_returns_chunk_preview_and_citation(indexed_qna_record)
     assert results[0].citation["source"] == "hidoc"
     assert results[0].citation["external_question_id"] == "C0002"
     assert results[0].citation["external_answer_id"] == "A0002"
+    assert results[0].document_status == KnowledgeDocument.Status.READY
     assert results[0].score >= 0
+
+
+@pytest.mark.django_db
+def test_search_knowledge_excludes_needs_review_documents_by_default(indexed_qna_record):
+    assert KnowledgeDocument.objects.get().status == KnowledgeDocument.Status.NEEDS_REVIEW
+
+    results = search_knowledge(
+        "아기 고환 물집 아기띠",
+        top_k=3,
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+    )
+
+    assert results == []
+
+
+@pytest.mark.django_db
+def test_search_knowledge_can_include_needs_review_for_admin_verification(indexed_qna_record):
+    results = search_knowledge(
+        "아기 고환 물집 아기띠",
+        top_k=3,
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        include_needs_review=True,
+    )
+
+    assert len(results) == 1
+    assert results[0].document_status == KnowledgeDocument.Status.NEEDS_REVIEW
+
+
+@pytest.mark.django_db
+def test_search_knowledge_excludes_disabled_documents(indexed_qna_record):
+    KnowledgeDocument.objects.update(status=KnowledgeDocument.Status.DISABLED)
+
+    results = search_knowledge(
+        "아기 고환 물집 아기띠",
+        top_k=3,
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        include_needs_review=True,
+    )
+
+    assert results == []
 
 
 @pytest.mark.django_db

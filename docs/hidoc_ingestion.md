@@ -90,6 +90,23 @@ cd backend
 python manage.py search_knowledge --query "아기 고환 물집 아기띠" --top-k 5 --source hidoc --department-code PD000
 ```
 
-The search command returns chunk previews plus citation metadata only. It does
-not call an LLM and does not turn HiDoc Q&A into authoritative medical
-guidance.
+Default search uses only `ready` documents. The HiDoc sample is indexed as
+`needs_review`, so default retrieval should return no candidate Q&A until a
+reviewer marks records as ready. For admin verification only:
+
+```bash
+cd backend
+python manage.py search_knowledge --query "아기 고환 물집 아기띠" --top-k 5 --source hidoc --department-code PD000 --include-needs-review
+```
+
+The search command and verification API return chunk previews plus citation
+metadata only. They do not call an LLM and do not turn HiDoc Q&A into
+authoritative medical guidance. Red-flag queries are suppressed in the
+verification API instead of returning HiDoc snippets as if they were advice.
+
+Review API endpoints:
+
+- `GET /api/knowledge/documents/?source=hidoc&department_code=PD000&status=needs_review`
+- `GET /api/knowledge/documents/<id>/`
+- `PATCH /api/knowledge/documents/<id>/status/`
+- `GET /api/knowledge/search/verify/?query=...&source=hidoc&department_code=PD000`

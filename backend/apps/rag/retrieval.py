@@ -15,6 +15,7 @@ from apps.rag.embeddings import EmbeddingAdapter, get_embedding_adapter, vector_
 class KnowledgeSearchResult:
     chunk_id: int
     document_id: int
+    document_status: str
     score: float
     text_preview: str
     citation: dict[str, Any]
@@ -27,6 +28,7 @@ def search_knowledge(
     embedding_adapter: EmbeddingAdapter | None = None,
     source: str | None = None,
     department_code: str | None = None,
+    include_needs_review: bool = False,
 ) -> list[KnowledgeSearchResult]:
     if not query.strip() or top_k <= 0:
         return []
@@ -39,6 +41,7 @@ def search_knowledge(
                 top_k=top_k,
                 source=source,
                 department_code=department_code,
+                include_needs_review=include_needs_review,
             )
         except Exception:
             # Keep management smoke tests usable on early databases where pgvector
@@ -48,8 +51,15 @@ def search_knowledge(
                 top_k=top_k,
                 source=source,
                 department_code=department_code,
+                include_needs_review=include_needs_review,
             )
-    return _search_python(query_embedding, top_k=top_k, source=source, department_code=department_code)
+    return _search_python(
+        query_embedding,
+        top_k=top_k,
+        source=source,
+        department_code=department_code,
+        include_needs_review=include_needs_review,
+    )
 
 
 def _search_python(
@@ -58,8 +68,13 @@ def _search_python(
     top_k: int,
     source: str | None,
     department_code: str | None,
+    include_needs_review: bool,
 ) -> list[KnowledgeSearchResult]:
     queryset = KnowledgeChunk.objects.select_related("document", "document__source")
+    allowed_statuses = ["ready"]
+    if include_needs_review:
+        allowed_statuses.append("needs_review")
+    queryset = queryset.filter(document__status__in=allowed_statuses, document__source__is_active=True)
     if source:
         queryset = queryset.filter(document__source__key=source)
     if department_code:
@@ -80,9 +95,14 @@ def _search_postgres(
     top_k: int,
     source: str | None,
     department_code: str | None,
+    include_needs_review: bool,
 ) -> list[KnowledgeSearchResult]:
-    filters = ["c.embedding_vector IS NOT NULL"]
+    filters = ["c.embedding_vector IS NOT NULL", "s.is_active = true"]
     params: list[object] = [vector_to_pgvector(query_embedding)]
+    if include_needs_review:
+        filters.append("d.status IN ('ready', 'needs_review')")
+    else:
+        filters.append("d.status = 'ready'")
     if source:
         filters.append("s.key = %s")
         params.append(source)
@@ -95,6 +115,7 @@ def _search_postgres(
         SELECT
             c.id,
             d.id,
+            d.status,
             GREATEST(0, 1 - (c.embedding_vector <=> %s::vector)) AS score,
             LEFT(c.text, 240) AS text_preview,
             c.citation_metadata
@@ -115,9 +136,10 @@ def _search_postgres(
         KnowledgeSearchResult(
             chunk_id=row[0],
             document_id=row[1],
-            score=float(row[2]),
-            text_preview=row[3],
-            citation=_normalize_citation(row[4]),
+            document_status=row[2],
+            score=float(row[3]),
+            text_preview=row[4],
+            citation=_normalize_citation(row[5]),
         )
         for row in rows
     ]
@@ -127,6 +149,7 @@ def _build_result(chunk: KnowledgeChunk, *, score: float) -> KnowledgeSearchResu
     return KnowledgeSearchResult(
         chunk_id=chunk.id,
         document_id=chunk.document_id,
+        document_status=chunk.document.status,
         score=round(score, 6),
         text_preview=chunk.text[:240],
         citation=chunk.citation_metadata or {},

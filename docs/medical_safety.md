@@ -11,3 +11,13 @@ Milestone 1 does not generate medical answers. Later milestones must preserve th
 - Do not invent guidelines, contraindications, sources, or medication doses.
 - Do not expose hidden chain-of-thought. Expose graph path, node summaries, retrieved sources, and model metadata instead.
 - Use synthetic PHI only in tests and seed data.
+
+External public Q&A, including HiDoc sample data, is candidate/evaluation
+content unless explicit permission and clinical approval exist. It must remain
+`needs_review` until reviewed, and default retrieval must use only `ready`
+documents. `disabled` documents must never be returned by retrieval.
+
+Retrieval verification tools may show snippets and citation metadata, but they
+must not synthesize medical advice. Red-flag queries should be suppressed from
+candidate Q&A retrieval and routed to urgent escalation behavior in future graph
+workflows.

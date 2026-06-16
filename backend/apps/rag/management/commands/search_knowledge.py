@@ -18,6 +18,11 @@ class Command(BaseCommand):
         parser.add_argument("--source", default="", help="Optional source filter, for example hidoc.")
         parser.add_argument("--department-code", default="", help="Optional department code filter.")
         parser.add_argument(
+            "--include-needs-review",
+            action="store_true",
+            help="Include needs_review documents for admin verification. Disabled documents are still excluded.",
+        )
+        parser.add_argument(
             "--embedding-provider",
             default=os.environ.get("EMBEDDING_PROVIDER", "deterministic"),
             choices=("deterministic", "http"),
@@ -41,6 +46,7 @@ class Command(BaseCommand):
             embedding_adapter=adapter,
             source=options["source"] or None,
             department_code=options["department_code"] or None,
+            include_needs_review=options["include_needs_review"],
         )
         if not results:
             self.stdout.write("No knowledge chunks found.")
@@ -53,6 +59,7 @@ class Command(BaseCommand):
                         "rank": index,
                         "score": result.score,
                         "chunk_id": result.chunk_id,
+                        "document_status": result.document_status,
                         "preview": result.text_preview,
                         "citation": result.citation,
                     },

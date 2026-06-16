@@ -100,6 +100,56 @@ def test_indexer_is_idempotent_and_does_not_duplicate_chunks(external_qna_record
     assert KnowledgeChunk.objects.count() == 1
 
 
+@pytest.mark.django_db
+def test_indexer_preserves_review_status_when_content_hash_is_unchanged(external_qna_record):
+    adapter = DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding")
+    indexer = ExternalQnaIndexer(embedding_adapter=adapter, chunk_chars=240)
+    indexer.index_records(ExternalQnaRecord.objects.filter(pk=external_qna_record.pk))
+    document = KnowledgeDocument.objects.get(source_external_id=external_qna_record.external_id)
+    document.status = KnowledgeDocument.Status.READY
+    document.save(update_fields=["status"])
+
+    indexer.index_records(ExternalQnaRecord.objects.filter(pk=external_qna_record.pk))
+
+    document.refresh_from_db()
+    assert document.status == KnowledgeDocument.Status.READY
+
+
+@pytest.mark.django_db
+def test_indexer_resets_ready_document_to_needs_review_when_content_hash_changes(external_qna_record):
+    adapter = DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding")
+    indexer = ExternalQnaIndexer(embedding_adapter=adapter, chunk_chars=240)
+    indexer.index_records(ExternalQnaRecord.objects.filter(pk=external_qna_record.pk))
+    document = KnowledgeDocument.objects.get(source_external_id=external_qna_record.external_id)
+    document.status = KnowledgeDocument.Status.READY
+    document.save(update_fields=["status"])
+    external_qna_record.content_hash = "hash-2"
+    external_qna_record.answer_body = "내용이 바뀌어 재검수가 필요합니다."
+    external_qna_record.save(update_fields=["content_hash", "answer_body"])
+
+    indexer.index_records(ExternalQnaRecord.objects.filter(pk=external_qna_record.pk))
+
+    document.refresh_from_db()
+    assert document.status == KnowledgeDocument.Status.NEEDS_REVIEW
+
+
+@pytest.mark.django_db
+def test_indexer_preserves_disabled_status_when_content_hash_changes(external_qna_record):
+    adapter = DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding")
+    indexer = ExternalQnaIndexer(embedding_adapter=adapter, chunk_chars=240)
+    indexer.index_records(ExternalQnaRecord.objects.filter(pk=external_qna_record.pk))
+    document = KnowledgeDocument.objects.get(source_external_id=external_qna_record.external_id)
+    document.status = KnowledgeDocument.Status.DISABLED
+    document.save(update_fields=["status"])
+    external_qna_record.content_hash = "hash-2"
+    external_qna_record.save(update_fields=["content_hash"])
+
+    indexer.index_records(ExternalQnaRecord.objects.filter(pk=external_qna_record.pk))
+
+    document.refresh_from_db()
+    assert document.status == KnowledgeDocument.Status.DISABLED
+
+
 def test_index_external_qna_command_arguments_parse():
     parser = IndexCommand().create_parser("manage.py", "index_external_qna")
 

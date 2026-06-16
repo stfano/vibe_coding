@@ -40,8 +40,9 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
   - safe no-indexed-documents chat endpoint
   - HiDoc answer-level Q&A ingestion into `ExternalQnaRecord`
   - Q&A-to-knowledge indexing into documents/chunks/index jobs
+  - knowledge document review gate for `needs_review`, `ready`, and `disabled`
   - deterministic and HTTP embedding adapter boundaries
-  - citation-only chunk retrieval command
+  - citation-only chunk retrieval command and verification API
   - Django Admin registration for active models
 - React/Vite frontend with:
   - backend health status panel
@@ -257,10 +258,28 @@ cd backend
 python manage.py search_knowledge --query "아기 고환 물집 아기띠" --top-k 5 --source hidoc --department-code PD000
 ```
 
-The search command returns previews and citation metadata. It does not call an
-LLM and does not generate medical advice. Re-running `index_external_qna` is
-idempotent: the same document rows are updated and their chunks are replaced, so
-duplicate chunks are not created.
+By default, retrieval only uses `ready` documents. HiDoc documents are indexed as
+`needs_review`, so they must be explicitly reviewed before default retrieval can
+return them. Admin verification can include review-pending documents with:
+
+```bash
+cd backend
+python manage.py search_knowledge --query "아기 고환 물집 아기띠" --top-k 5 --source hidoc --department-code PD000 --include-needs-review
+```
+
+The search command and verification API return previews and citation metadata.
+They do not call an LLM and do not generate medical advice. Re-running
+`index_external_qna` is idempotent: the same document rows are updated and their
+chunks are replaced, so duplicate chunks are not created. Existing `ready` or
+`disabled` review status is preserved unless source content changes; changed
+ready content is reset to `needs_review`.
+
+Review and verification API surface:
+
+- `GET /api/knowledge/documents/`
+- `GET /api/knowledge/documents/<id>/`
+- `PATCH /api/knowledge/documents/<id>/status/`
+- `GET /api/knowledge/search/verify/`
 
 ## Development Rules
 

@@ -53,6 +53,19 @@ class KnowledgeDocumentAdmin(admin.ModelAdmin):
     search_fields = ("source_external_id", "title", "source_url")
     readonly_fields = ("created_at", "updated_at")
     inlines = (KnowledgeChunkInline,)
+    actions = ("mark_ready", "mark_needs_review", "mark_disabled")
+
+    @admin.action(description="Mark selected documents as ready")
+    def mark_ready(self, request, queryset):
+        queryset.update(status=KnowledgeDocument.Status.READY)
+
+    @admin.action(description="Mark selected documents as needs review")
+    def mark_needs_review(self, request, queryset):
+        queryset.update(status=KnowledgeDocument.Status.NEEDS_REVIEW)
+
+    @admin.action(description="Mark selected documents as disabled")
+    def mark_disabled(self, request, queryset):
+        queryset.update(status=KnowledgeDocument.Status.DISABLED)
 
 
 @admin.register(KnowledgeChunk)

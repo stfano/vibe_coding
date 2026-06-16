@@ -1,38 +1,11 @@
 import { type FormEvent, useEffect, useState } from "react";
 
-type HealthResponse = {
-  ok: boolean;
-  data: {
-    status: string;
-    service: string;
-    dependencies: Record<string, string>;
-  } | null;
-  error: { code?: string; message?: string } | null;
-  meta: {
-    version?: string;
-  };
-};
+import { apiBaseUrl, type ChatData, type Envelope, type HealthData } from "./api";
+import { ReviewQueuePanel } from "./ReviewQueuePanel";
+import { SearchVerificationPanel } from "./SearchVerificationPanel";
 
-type ChatResponse = {
-  ok: boolean;
-  data: {
-    session_id: string;
-    answer: string;
-    safety_notice: string;
-    source_status: string;
-    citations: string[];
-    graph: {
-      executed: boolean;
-      path: string[];
-    };
-  } | null;
-  error: { code?: string; message?: string } | null;
-  meta: {
-    request_id?: string;
-  };
-};
-
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
+type HealthResponse = Envelope<HealthData>;
+type ChatResponse = Envelope<ChatData>;
 
 export default function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -160,6 +133,10 @@ export default function App() {
               )}
             </ul>
           </section>
+
+          <ReviewQueuePanel />
+
+          <SearchVerificationPanel />
 
           <section className="panel chat-panel">
             <h2>Chat Workspace</h2>
