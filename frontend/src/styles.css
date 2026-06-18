@@ -378,6 +378,11 @@ textarea {
   font-size: 12px;
 }
 
+ul.citation-list {
+  padding-left: 18px;
+  color: #4b5560;
+}
+
 .citation-list div {
   display: grid;
   grid-template-columns: 86px minmax(0, 1fr);

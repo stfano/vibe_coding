@@ -21,10 +21,34 @@ export type ChatData = {
   answer: string;
   safety_notice: string;
   source_status: string;
-  citations: string[];
+  citations: Array<{
+    title?: string;
+    source?: string;
+    source_url?: string;
+    external_question_id?: string;
+    external_answer_id?: string;
+    department?: string;
+    department_code?: string;
+    chunk_index?: number;
+  }>;
+  safety_flags: string[];
+  retrieved_source_ids: number[];
+  llm_executed: boolean;
   graph: {
     executed: boolean;
+    version?: string;
     path: string[];
+    node_summaries?: Array<{
+      name: string;
+      duration_ms: number;
+      summary: string;
+    }>;
+    retrieved_source_ids?: number[];
+    source_status?: string;
+    safety_flags?: string[];
+    model_name?: string | null;
+    prompt_version?: string | null;
+    llm_executed?: boolean;
   };
 };
 

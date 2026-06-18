@@ -46,6 +46,23 @@ Optional Ollama service:
 docker compose --profile llm up ollama
 ```
 
+Pull the model from a second terminal, or start the service in the background
+first:
+
+```bash
+docker compose --profile llm up -d ollama
+docker compose exec ollama ollama pull llama3.1:8b
+```
+
+Chat generation uses these environment variables:
+
+```bash
+CHAT_LLM_PROVIDER=ollama
+CHAT_LLM_MODEL=llama3.1:8b
+CHAT_LLM_TIMEOUT=30
+OLLAMA_BASE_URL=http://ollama:11434
+```
+
 ## Backend Commands
 
 Run migrations:
@@ -83,6 +100,20 @@ Monitor ingestion progress in real time:
 ```bash
 tail -f ingestion.log
 ```
+
+Run a source-grounded chat smoke test after at least one indexed document has
+been reviewed to `ready`:
+
+```bash
+curl -sS -X POST http://localhost:8000/api/chat/messages/ \
+  -H "Content-Type: application/json" \
+  -d '{"message":"아기 고환 물집 아기띠"}'
+```
+
+Retrieved responses should include `source_status: "retrieved"`,
+`llm_executed: true`, citations, `graph.model_name`, and
+`graph.prompt_version`. Red-flag, no-ready-document, and low-confidence paths
+keep `llm_executed: false`.
 
 For parser/network verification without database writes:
 

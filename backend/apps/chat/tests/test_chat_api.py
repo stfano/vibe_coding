@@ -52,6 +52,7 @@ def test_chat_endpoint_runs_graph_and_returns_safe_no_source_fallback():
     assert body["data"]["source_status"] == "no_matching_ready_documents"
     assert body["data"]["citations"] == []
     assert body["data"]["graph"]["executed"] is True
+    assert body["data"]["llm_executed"] is False
     assert body["data"]["graph"]["path"] == [
         "validate_input",
         "detect_red_flags",
@@ -61,6 +62,8 @@ def test_chat_endpoint_runs_graph_and_returns_safe_no_source_fallback():
         "persist_metadata",
     ]
     assert body["data"]["graph"]["retrieved_source_ids"] == []
+    assert body["data"]["graph"]["model_name"] is None
+    assert body["data"]["graph"]["prompt_version"] is None
     assert "approved medical knowledge documents are indexed" in body["data"]["answer"]
     assert "does not replace clinician judgment" in body["data"]["safety_notice"]
 
@@ -104,6 +107,7 @@ def test_chat_endpoint_does_not_answer_red_flag_query_from_hidoc():
     assert body["data"]["source_status"] == "urgent_escalation"
     assert body["data"]["citations"] == []
     assert body["data"]["graph"]["executed"] is True
+    assert body["data"]["llm_executed"] is False
     assert body["data"]["graph"]["path"] == [
         "validate_input",
         "detect_red_flags",
@@ -127,6 +131,7 @@ def test_chat_endpoint_excludes_needs_review_documents(indexed_qna_document):
     body = response.json()["data"]
     assert indexed_qna_document.status == KnowledgeDocument.Status.NEEDS_REVIEW
     assert body["source_status"] == "no_matching_ready_documents"
+    assert body["llm_executed"] is False
     assert body["citations"] == []
     assert body["graph"]["retrieved_source_ids"] == []
 
@@ -145,9 +150,12 @@ def test_chat_endpoint_retrieves_ready_document_with_citation_metadata(indexed_q
     assert response.status_code == 200
     body = response.json()["data"]
     assert body["source_status"] == "retrieved"
+    assert body["llm_executed"] is True
     assert body["citations"][0]["external_question_id"] == "CHAT100"
     assert body["citations"][0]["external_answer_id"] == "A100"
     assert body["graph"]["executed"] is True
+    assert body["graph"]["model_name"]
+    assert body["graph"]["prompt_version"]
     assert body["graph"]["retrieved_source_ids"] == [indexed_qna_document.id]
     assert "retrieved_context_available" in body["safety_flags"]
-    assert "citation" in body["answer"].lower()
+    assert "CHAT100" in body["answer"]

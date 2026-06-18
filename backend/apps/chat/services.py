@@ -38,6 +38,7 @@ def create_chat_response(*, message: str, user, session_id=None) -> dict[str, ob
             "source_status": graph_result["source_status"],
             "graph": graph_result["graph"],
             "retrieved_chunks": graph_result["retrieved_chunks"],
+            "llm_executed": graph_result["llm_executed"],
         },
     )
     session.metadata = {
@@ -59,6 +60,7 @@ def create_chat_response(*, message: str, user, session_id=None) -> dict[str, ob
             "graph": graph_result["graph"],
             "citations": graph_result["citations"],
             "retrieved_source_ids": graph_result["retrieved_source_ids"],
+            "llm_executed": graph_result["llm_executed"],
         },
     )
 
@@ -72,6 +74,8 @@ def create_chat_response(*, message: str, user, session_id=None) -> dict[str, ob
         "citations": graph_result["citations"],
         "safety_flags": assistant_message.safety_flags,
         "graph": graph_result["graph"],
+        "retrieved_source_ids": graph_result["retrieved_source_ids"],
+        "llm_executed": graph_result["llm_executed"],
     }
 
 

@@ -2,7 +2,7 @@
 
 Doctor Chat is a Docker-first clinician-support chatbot platform scaffold. It is inspired by Rubicon operating patterns, but rebuilt for a local open-source stack with Django, React, LangGraph/LangChain-ready app boundaries, and medical safety constraints.
 
-The current repository is an early vertical slice. It can run a backend health API, a minimal React workspace, Django Admin registrations, operational logging models, auth profile models, external Q&A ingestion, knowledge chunk indexing, citation-only retrieval smoke tests, and a non-streaming chat endpoint backed by a minimal non-LLM safety router.
+The current repository is an early vertical slice. It can run a backend health API, a minimal React workspace, Django Admin registrations, operational logging models, auth profile models, external Q&A ingestion, knowledge chunk indexing, retrieval smoke tests, and a non-streaming chat endpoint backed by a graph-compatible router. When ready knowledge chunks are retrieved with sufficient confidence, chat can synthesize a source-grounded answer through a local LLM adapter.
 
 ## Clinical Safety Position
 
@@ -10,13 +10,13 @@ This project is for clinician support and medical knowledge retrieval. It must n
 
 Current chat behavior is intentionally conservative:
 
-- It does not call an LLM.
-- It does not perform RAG answer generation yet.
+- It calls a local LLM only after ready knowledge chunks are retrieved with sufficient confidence.
+- It passes only the user query, retrieved chunk text, and citation metadata into the answer prompt.
 - It returns safe fallback responses when no approved documents are indexed, retrieval confidence is low, or a red-flag query is detected.
 - It includes a clinician-judgment safety notice.
 - It persists chat messages and chat log metadata for audit/debug work.
 
-Future medical answer generation must be source-grounded, cite retrieved evidence, route emergency/red-flag scenarios to urgent escalation guidance, and avoid hidden chain-of-thought exposure.
+Medical answer generation must remain source-grounded, cite retrieved evidence, route emergency/red-flag scenarios to urgent escalation guidance, and avoid hidden chain-of-thought exposure.
 
 ## Current Project State
 
@@ -37,13 +37,14 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
   - API/login/service/chat log models
   - API request logging middleware with request IDs
   - chat session/message models
-  - safe no-indexed-documents chat endpoint
-  - minimal graph-compatible chat safety router with red-flag suppression and ready-document retrieval
+  - graph-backed chat endpoint
+  - minimal graph-compatible chat router with red-flag suppression, ready-document retrieval, and source-grounded answer synthesis
   - HiDoc answer-level Q&A ingestion into `ExternalQnaRecord`
   - Q&A-to-knowledge indexing into documents/chunks/index jobs
   - knowledge document review gate for `needs_review`, `ready`, and `disabled`
   - deterministic and HTTP embedding adapter boundaries
-  - citation-only chunk retrieval command and verification API
+  - deterministic and Ollama-compatible local chat LLM adapter boundaries
+  - chunk retrieval command and verification API
   - Django Admin registration for active models
 - React/Vite frontend with:
   - backend health status panel
@@ -67,8 +68,8 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
 
 ### Not Implemented Yet
 
-- Full LangGraph workflow execution with LLM answer synthesis
-- LangChain retrievers, prompt templates, and citation formatting inside chat
+- Full LangGraph runtime integration beyond the current graph-compatible router
+- LangChain retrievers and prompt templates inside chat
 - document upload and parsing
 - production embedding/reranking models beyond deterministic scaffold
 - prompt registry/versioning
@@ -90,8 +91,8 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
 │       ├── loggingx/        # API/login/service/chat logs
 │       ├── chat/            # chat session/message API and services
 │       ├── knowledge/       # external Q&A ingestion and knowledge indexing
-│       ├── rag/             # embedding adapters and citation-only retrieval helpers
-│       ├── graph/           # future LangGraph workflow
+│       ├── rag/             # embedding, retrieval, and local LLM adapter helpers
+│       ├── graph/           # graph-compatible chat router
 │       ├── evaluation/      # future evaluation flows
 │       └── adminx/          # future admin-facing APIs
 ├── frontend/                # React + Vite + TypeScript UI
@@ -128,9 +129,10 @@ Current response behavior:
 - executes a minimal graph-compatible safety router
 - searches only `ready` knowledge documents
 - suppresses red-flag queries before retrieval
+- calls a local LLM only when source status is `retrieved`
 - persists an assistant safety-router response
 - writes a chat log
-- returns source status, safety flags, citations, graph path, node summaries, and `graph.executed: true`
+- returns the answer, citations, source status, safety flags, graph path, node summaries, model metadata, prompt version, retrieved source IDs, `llm_executed`, and `graph.executed: true`
 
 ## Local Development
 
@@ -176,6 +178,25 @@ Optional local LLM runtime:
 ```bash
 docker compose --profile llm up ollama
 ```
+
+Pull the model from a second terminal, or start the service in the background
+first:
+
+```bash
+docker compose --profile llm up -d ollama
+docker compose exec ollama ollama pull llama3.1:8b
+```
+
+Chat LLM configuration is read from environment variables:
+
+```bash
+CHAT_LLM_PROVIDER=ollama
+CHAT_LLM_MODEL=llama3.1:8b
+CHAT_LLM_TIMEOUT=30
+OLLAMA_BASE_URL=http://ollama:11434
+```
+
+For deterministic local tests, use `CHAT_LLM_PROVIDER=deterministic`.
 
 ## Verification
 
@@ -285,6 +306,24 @@ Review and verification API surface:
 - `PATCH /api/knowledge/documents/<id>/status/`
 - `GET /api/knowledge/search/verify/`
 
+## Source-Grounded Chat Smoke Test
+
+Chat answer synthesis only uses `ready` knowledge documents. After reviewing at
+least one indexed document to `ready`, run Ollama and send a query:
+
+```bash
+docker compose --profile llm up -d ollama
+docker compose exec ollama ollama pull llama3.1:8b
+curl -sS -X POST http://localhost:8000/api/chat/messages/ \
+  -H "Content-Type: application/json" \
+  -d '{"message":"아기 고환 물집 아기띠"}'
+```
+
+Expected successful retrieved responses include `source_status: "retrieved"`,
+`llm_executed: true`, citation metadata, `graph.model_name`, and
+`graph.prompt_version`. Red-flag, no-ready-document, and low-confidence branches
+return fallback responses with `llm_executed: false`.
+
 ## Development Rules
 
 Before making non-trivial changes, read:
@@ -311,7 +350,7 @@ When adding medical RAG behavior:
 1. Add an evaluation dataset and retrieval metrics for ready documents.
 2. Promote a small reviewed subset of synthetic or approved documents to `ready`.
 3. Compare deterministic embeddings with the HTTP Korean embedding service.
-4. Add prompt registry and source-grounded LLM synthesis only after retrieval and safety metrics are stable.
+4. Add prompt registry and offline answer-quality evaluation for source-grounded chat.
 5. Add streaming chat and an operational debug/log viewer in the frontend.
 
 ## Security Note

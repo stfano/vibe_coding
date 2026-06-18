@@ -10,6 +10,11 @@ from django.db import connection
 from apps.knowledge.models import KnowledgeChunk, KnowledgeDocument
 from apps.knowledge.safety import detect_red_flag_query
 from apps.rag.embeddings import DeterministicEmbeddingAdapter, EmbeddingAdapter
+from apps.rag.llms import (
+    ChatLLMAdapter,
+    build_source_grounded_prompt_payload,
+    get_chat_llm_adapter,
+)
 from apps.rag.retrieval import KnowledgeSearchResult, search_knowledge
 
 
@@ -57,6 +62,10 @@ class ChatGraphState:
     citations: list[dict[str, Any]] = field(default_factory=list)
     safety_flags: list[str] = field(default_factory=list)
     retrieved_source_ids: list[int] = field(default_factory=list)
+    prompt_payload: dict[str, Any] | None = None
+    prompt_version: str | None = None
+    model_name: str | None = None
+    llm_executed: bool = False
 
 
 def run_chat_safety_graph(
@@ -64,6 +73,7 @@ def run_chat_safety_graph(
     message: str,
     top_k: int = DEFAULT_TOP_K,
     embedding_adapter: EmbeddingAdapter | None = None,
+    llm_adapter: ChatLLMAdapter | None = None,
 ) -> dict[str, Any]:
     state = ChatGraphState(
         message=message,
@@ -87,6 +97,8 @@ def run_chat_safety_graph(
         lambda current: _retrieve_ready_documents(current, embedding_adapter=embedding_adapter),
     )
     _run_node(state, "decide_source_status", _decide_source_status)
+    if state.source_status == "retrieved":
+        _run_node(state, "synthesize_answer", lambda current: _synthesize_answer(current, llm_adapter=llm_adapter))
     _run_node(state, "format_response", _format_response)
     _run_node(state, "persist_metadata", _persist_metadata)
     return _serialize_state(state)
@@ -157,10 +169,23 @@ def _format_response(state: ChatGraphState) -> str:
     elif state.source_status == "low_confidence":
         state.answer = LOW_CONFIDENCE_ANSWER
     elif state.source_status == "retrieved":
-        state.answer = RETRIEVED_CONTEXT_ANSWER
+        if not state.answer:
+            state.answer = RETRIEVED_CONTEXT_ANSWER
     else:
         state.answer = NO_SOURCE_ANSWER
     return f"formatted {state.source_status} response"
+
+
+def _synthesize_answer(state: ChatGraphState, *, llm_adapter: ChatLLMAdapter | None) -> str:
+    adapter = llm_adapter or get_chat_llm_adapter()
+    payload = build_source_grounded_prompt_payload(query=state.message, results=state.retrieved_results)
+    response = adapter.generate_answer(payload)
+    state.prompt_payload = payload
+    state.prompt_version = payload["prompt_version"]
+    state.model_name = response.model_name
+    state.answer = response.text
+    state.llm_executed = True
+    return f"generated source-grounded answer with {adapter.model_name}"
 
 
 def _persist_metadata(state: ChatGraphState) -> str:
@@ -175,6 +200,7 @@ def _serialize_state(state: ChatGraphState) -> dict[str, Any]:
         "safety_flags": state.safety_flags,
         "red_flag_terms": state.red_flag_terms,
         "retrieved_source_ids": state.retrieved_source_ids,
+        "llm_executed": state.llm_executed,
         "retrieved_chunks": [
             {
                 "chunk_id": result.chunk_id,
@@ -201,6 +227,9 @@ def _serialize_state(state: ChatGraphState) -> dict[str, Any]:
             "retrieved_source_ids": state.retrieved_source_ids,
             "source_status": state.source_status,
             "safety_flags": state.safety_flags,
+            "model_name": state.model_name,
+            "prompt_version": state.prompt_version,
+            "llm_executed": state.llm_executed,
         },
     }
 

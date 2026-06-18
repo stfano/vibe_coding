@@ -19,6 +19,7 @@ class KnowledgeSearchResult:
     score: float
     text_preview: str
     citation: dict[str, Any]
+    text: str = ""
 
 
 def search_knowledge(
@@ -118,7 +119,8 @@ def _search_postgres(
             d.status,
             GREATEST(0, 1 - (c.embedding_vector <=> %s::vector)) AS score,
             LEFT(c.text, 240) AS text_preview,
-            c.citation_metadata
+            c.citation_metadata,
+            c.text
         FROM knowledge_knowledgechunk c
         JOIN knowledge_knowledgedocument d ON c.document_id = d.id
         JOIN knowledge_knowledgesource s ON d.source_id = s.id
@@ -140,6 +142,7 @@ def _search_postgres(
             score=float(row[3]),
             text_preview=row[4],
             citation=_normalize_citation(row[5]),
+            text=row[6],
         )
         for row in rows
     ]
@@ -153,6 +156,7 @@ def _build_result(chunk: KnowledgeChunk, *, score: float) -> KnowledgeSearchResu
         score=round(score, 6),
         text_preview=chunk.text[:240],
         citation=chunk.citation_metadata or {},
+        text=chunk.text,
     )
 
 

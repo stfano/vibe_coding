@@ -146,8 +146,18 @@ export default function App() {
                   <div className="message-meta">
                     <span>{chatResponse.data.source_status.replace(/_/g, " ")}</span>
                     <span>graph: {chatResponse.data.graph.executed ? "executed" : "not executed"}</span>
+                    <span>llm: {chatResponse.data.llm_executed ? "executed" : "not executed"}</span>
                   </div>
                   <p>{chatResponse.data.answer}</p>
+                  {chatResponse.data.citations.length > 0 && (
+                    <ul className="citation-list">
+                      {chatResponse.data.citations.map((citation, index) => (
+                        <li key={`${citation.external_question_id ?? "source"}-${index}`}>
+                          {citation.title ?? citation.source_url ?? "Retrieved source"}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                   <p className="safety">{chatResponse.data.safety_notice}</p>
                 </article>
               ) : (

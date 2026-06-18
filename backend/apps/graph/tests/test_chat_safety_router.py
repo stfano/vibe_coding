@@ -8,6 +8,18 @@ from apps.graph.router import run_chat_safety_graph
 from apps.knowledge.indexing import ExternalQnaIndexer
 from apps.knowledge.models import ExternalQnaRecord, KnowledgeDocument
 from apps.rag.embeddings import DeterministicEmbeddingAdapter
+from apps.rag.llms import LLMResponse
+
+
+class RecordingLLMAdapter:
+    model_name = "recording-llm"
+
+    def __init__(self):
+        self.calls = []
+
+    def generate_answer(self, payload):
+        self.calls.append(payload)
+        return LLMResponse(text="생성된 근거 기반 답변입니다. [1]", model_name=self.model_name)
 
 
 @pytest.fixture
@@ -39,12 +51,17 @@ def ready_document() -> KnowledgeDocument:
 
 @pytest.mark.django_db
 def test_chat_safety_graph_suppresses_red_flag_before_retrieval(ready_document):
+    llm_adapter = RecordingLLMAdapter()
+
     result = run_chat_safety_graph(
         message="소아 호흡곤란 청색증 응급",
         embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        llm_adapter=llm_adapter,
     )
 
     assert result["source_status"] == "urgent_escalation"
+    assert result["llm_executed"] is False
+    assert llm_adapter.calls == []
     assert result["citations"] == []
     assert "red_flag_query" in result["safety_flags"]
     assert result["graph"]["path"] == [
@@ -58,16 +75,46 @@ def test_chat_safety_graph_suppresses_red_flag_before_retrieval(ready_document):
 
 @pytest.mark.django_db
 def test_chat_safety_graph_returns_ready_context_with_citations(ready_document):
+    llm_adapter = RecordingLLMAdapter()
+
     result = run_chat_safety_graph(
         message="아기 고환 물집 아기띠",
         embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        llm_adapter=llm_adapter,
     )
 
     assert result["source_status"] == "retrieved"
+    assert result["answer"] == "생성된 근거 기반 답변입니다. [1]"
+    assert result["llm_executed"] is True
     assert result["citations"][0]["external_question_id"] == "GRAPH100"
     assert result["retrieved_source_ids"] == [ready_document.id]
     assert result["graph"]["executed"] is True
+    assert result["graph"]["model_name"] == "recording-llm"
+    assert result["graph"]["prompt_version"]
     assert result["graph"]["node_summaries"]
+    assert "synthesize_answer" in result["graph"]["path"]
+    assert len(llm_adapter.calls) == 1
+
+
+@pytest.mark.django_db
+def test_chat_safety_graph_prompt_payload_contains_only_query_context_and_citations(ready_document):
+    llm_adapter = RecordingLLMAdapter()
+
+    run_chat_safety_graph(
+        message="아기 고환 물집 아기띠",
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        llm_adapter=llm_adapter,
+    )
+
+    payload = llm_adapter.calls[0]
+    assert payload["query"] == "아기 고환 물집 아기띠"
+    assert set(payload) == {"prompt_version", "instructions", "query", "contexts"}
+    assert len(payload["contexts"]) == 1
+    assert set(payload["contexts"][0]) == {"chunk_id", "document_id", "score", "text", "citation"}
+    assert payload["contexts"][0]["citation"]["external_question_id"] == "GRAPH100"
+    assert "아기띠" in payload["contexts"][0]["text"]
+    assert "question_body" not in payload["contexts"][0]
+    assert "answer_body" not in payload["contexts"][0]
 
 
 @pytest.mark.django_db
@@ -77,11 +124,32 @@ def test_chat_safety_graph_low_confidence_fallback(ready_document):
         embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
     )
     # Re-run with a deliberately high threshold to pin the low-confidence branch.
+    llm_adapter = RecordingLLMAdapter()
     with override_settings(CHAT_RAG_LOW_CONFIDENCE_THRESHOLD=result["retrieved_chunks"][0]["score"] + 0.1):
         low_confidence = run_chat_safety_graph(
             message="아기 고환 물집 아기띠",
             embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+            llm_adapter=llm_adapter,
         )
 
     assert low_confidence["source_status"] == "low_confidence"
+    assert low_confidence["llm_executed"] is False
     assert "low_confidence_retrieval" in low_confidence["safety_flags"]
+    assert llm_adapter.calls == []
+
+
+@pytest.mark.django_db
+def test_chat_safety_graph_no_ready_docs_does_not_call_llm(ready_document):
+    ready_document.status = KnowledgeDocument.Status.NEEDS_REVIEW
+    ready_document.save(update_fields=["status"])
+    llm_adapter = RecordingLLMAdapter()
+
+    result = run_chat_safety_graph(
+        message="아기 고환 물집 아기띠",
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        llm_adapter=llm_adapter,
+    )
+
+    assert result["source_status"] == "no_matching_ready_documents"
+    assert result["llm_executed"] is False
+    assert llm_adapter.calls == []

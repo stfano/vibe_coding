@@ -32,15 +32,15 @@ Active model apps:
 - `apps.loggingx`: API request, login, service, and chat logs.
 - `apps.chat`: chat session and message persistence.
 - `apps.knowledge`: external Q&A records, knowledge sources, documents, chunks, and index jobs.
-- `apps.rag`: embedding adapter boundary and citation-only retrieval service.
-- `apps.graph`: minimal non-LLM chat safety router.
+- `apps.rag`: embedding adapter boundary, retrieval service, and local chat LLM adapters.
+- `apps.graph`: minimal graph-compatible chat router.
 
 Non-streaming APIs should use the standard response envelope in `apps.common.responses`.
 
 The chat endpoint executes a minimal graph-compatible safety router. It validates
 input, suppresses red-flag queries before retrieval, searches only `ready`
-documents, chooses a source status, formats a non-LLM response, and persists
-graph metadata. It does not synthesize medical answers.
+documents, chooses a source status, synthesizes a source-grounded answer only
+when source status is `retrieved`, and persists graph metadata.
 
 ## Database Configuration
 
@@ -79,17 +79,23 @@ an LLM or synthesize medical guidance.
 - `detect_red_flags`
 - `retrieve_ready_documents`
 - `decide_source_status`
+- `synthesize_answer`
 - `format_response`
 - `persist_metadata`
 
 The router returns graph path, node summaries, source status, safety flags,
-citations, and retrieved source IDs. Red-flag queries return urgent escalation
-guidance without retrieval. No ready documents or low-confidence retrieval
-returns a no-source fallback. Retrieved context is exposed for clinician review
-only; no LLM answer generation occurs in this slice.
+citations, retrieved source IDs, model metadata, prompt version, and
+`llm_executed`. Red-flag queries return urgent escalation guidance without
+retrieval. No ready documents or low-confidence retrieval returns a no-source
+fallback. These fallback branches do not call the LLM.
+
+When source status is `retrieved`, the router builds a source-grounded prompt
+payload containing only the user query, retrieved ready chunk text, and citation
+metadata. The provider-neutral LLM adapter in `apps.rag.llms` can use Ollama for
+local generation or a deterministic adapter for tests.
 
 ## Out Of Scope For Milestone 2
 
-- Medical answer generation
+- Production medical answer workflow beyond source-grounded local synthesis
 - Document upload and parsing
-- Full LangGraph answer synthesis workflow
+- Full LangGraph runtime integration
