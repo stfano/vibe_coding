@@ -2,7 +2,7 @@
 
 Doctor Chat is a Docker-first clinician-support chatbot platform scaffold. It is inspired by Rubicon operating patterns, but rebuilt for a local open-source stack with Django, React, LangGraph/LangChain-ready app boundaries, and medical safety constraints.
 
-The current repository is an early vertical slice. It can run a backend health API, a minimal React workspace, Django Admin registrations, operational logging models, auth profile models, external Q&A ingestion, knowledge chunk indexing, citation-only retrieval smoke tests, and a non-streaming chat endpoint that safely returns a no-knowledge response because no approved medical documents are wired into chat yet.
+The current repository is an early vertical slice. It can run a backend health API, a minimal React workspace, Django Admin registrations, operational logging models, auth profile models, external Q&A ingestion, knowledge chunk indexing, citation-only retrieval smoke tests, and a non-streaming chat endpoint backed by a minimal non-LLM safety router.
 
 ## Clinical Safety Position
 
@@ -12,7 +12,7 @@ Current chat behavior is intentionally conservative:
 
 - It does not call an LLM.
 - It does not perform RAG answer generation yet.
-- It returns a safe no-knowledge response when no approved documents are indexed.
+- It returns safe fallback responses when no approved documents are indexed, retrieval confidence is low, or a red-flag query is detected.
 - It includes a clinician-judgment safety notice.
 - It persists chat messages and chat log metadata for audit/debug work.
 
@@ -38,6 +38,7 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
   - API request logging middleware with request IDs
   - chat session/message models
   - safe no-indexed-documents chat endpoint
+  - minimal graph-compatible chat safety router with red-flag suppression and ready-document retrieval
   - HiDoc answer-level Q&A ingestion into `ExternalQnaRecord`
   - Q&A-to-knowledge indexing into documents/chunks/index jobs
   - knowledge document review gate for `needs_review`, `ready`, and `disabled`
@@ -66,7 +67,7 @@ Future medical answer generation must be source-grounded, cite retrieved evidenc
 
 ### Not Implemented Yet
 
-- LangGraph workflow execution
+- Full LangGraph workflow execution with LLM answer synthesis
 - LangChain retrievers, prompt templates, and citation formatting inside chat
 - document upload and parsing
 - production embedding/reranking models beyond deterministic scaffold
@@ -124,9 +125,12 @@ Current response behavior:
 - validates request shape
 - creates or reuses a chat session
 - persists the user message
-- persists an assistant no-knowledge message
+- executes a minimal graph-compatible safety router
+- searches only `ready` knowledge documents
+- suppresses red-flag queries before retrieval
+- persists an assistant safety-router response
 - writes a chat log
-- returns no citations and `graph.executed: false`
+- returns source status, safety flags, citations, graph path, node summaries, and `graph.executed: true`
 
 ## Local Development
 
@@ -304,13 +308,11 @@ When adding medical RAG behavior:
 
 ## Next Practical Milestones
 
-1. Add knowledge document models, upload API, and indexing job status.
-2. Implement text extraction/chunking for approved synthetic documents.
-3. Add embedding-service `/embed` and optional `/rerank` endpoints.
-4. Wire pgvector indexing and retrieval behind backend services.
-5. Implement LangGraph state, nodes, conditional routing, and graph-run metadata.
-6. Add citation formatting, low-confidence behavior, and red-flag routing tests.
-7. Add streaming chat and an operational debug/log viewer in the frontend.
+1. Add an evaluation dataset and retrieval metrics for ready documents.
+2. Promote a small reviewed subset of synthetic or approved documents to `ready`.
+3. Compare deterministic embeddings with the HTTP Korean embedding service.
+4. Add prompt registry and source-grounded LLM synthesis only after retrieval and safety metrics are stable.
+5. Add streaming chat and an operational debug/log viewer in the frontend.
 
 ## Security Note
 

@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 
 from apps.chat.serializers import ChatMessageRequestSerializer
-from apps.chat.services import create_no_knowledge_chat_response
+from apps.chat.services import create_chat_response
 from apps.common.responses import std_response
 
 
@@ -22,7 +22,7 @@ def create_chat_message(request):
         )
 
     try:
-        payload = create_no_knowledge_chat_response(
+        payload = create_chat_response(
             message=serializer.validated_data["message"],
             user=request.user,
             session_id=serializer.validated_data.get("session_id"),

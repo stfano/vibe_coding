@@ -1,20 +1,16 @@
 from django.contrib.auth.models import AnonymousUser
 
 from apps.chat.models import ChatMessage, ChatSession
+from apps.graph.router import run_chat_safety_graph
 from apps.loggingx.models import ChatLog
 
 
-NO_KNOWLEDGE_ANSWER = (
-    "No approved medical knowledge documents are indexed yet, so I cannot provide a "
-    "source-grounded clinical answer. Please index approved clinical content before using "
-    "Doctor Chat for medical knowledge retrieval."
-)
 SAFETY_NOTICE = (
     "Doctor Chat supports clinician information retrieval and does not replace clinician judgment."
 )
 
 
-def create_no_knowledge_chat_response(*, message: str, user, session_id=None) -> dict[str, object]:
+def create_chat_response(*, message: str, user, session_id=None) -> dict[str, object]:
     authenticated_user = _authenticated_user_or_none(user)
     session = _get_or_create_session(
         message=message,
@@ -29,29 +25,40 @@ def create_no_knowledge_chat_response(*, message: str, user, session_id=None) ->
         message_type="user_input",
         metadata={"entrypoint": "non_streaming_chat_api"},
     )
+    graph_result = run_chat_safety_graph(message=message)
     assistant_message = ChatMessage.objects.create(
         session=session,
         user=authenticated_user,
         role=ChatMessage.Role.ASSISTANT,
-        content=NO_KNOWLEDGE_ANSWER,
-        message_type="no_knowledge",
-        safety_flags=["no_indexed_documents", "rag_unavailable"],
+        content=graph_result["answer"],
+        message_type=_message_type_for_source_status(graph_result["source_status"]),
+        safety_flags=graph_result["safety_flags"],
         metadata={
-            "citations": [],
-            "source_status": "no_indexed_documents",
-            "langgraph_executed": False,
+            "citations": graph_result["citations"],
+            "source_status": graph_result["source_status"],
+            "graph": graph_result["graph"],
+            "retrieved_chunks": graph_result["retrieved_chunks"],
         },
     )
+    session.metadata = {
+        **session.metadata,
+        "source_status": graph_result["source_status"],
+        "graph_version": graph_result["graph"]["version"],
+    }
+    session.save(update_fields=["metadata", "updated_at"])
     ChatLog.objects.create(
         session=session,
         message=assistant_message,
         user=authenticated_user,
-        event="no_knowledge_response",
+        event="graph_chat_response",
         safety_flags=assistant_message.safety_flags,
         metadata={
-            "source_status": "no_indexed_documents",
+            "source_status": graph_result["source_status"],
             "user_message_id": str(user_message.id),
             "assistant_message_id": str(assistant_message.id),
+            "graph": graph_result["graph"],
+            "citations": graph_result["citations"],
+            "retrieved_source_ids": graph_result["retrieved_source_ids"],
         },
     )
 
@@ -59,16 +66,12 @@ def create_no_knowledge_chat_response(*, message: str, user, session_id=None) ->
         "session_id": str(session.id),
         "user_message_id": str(user_message.id),
         "assistant_message_id": str(assistant_message.id),
-        "answer": NO_KNOWLEDGE_ANSWER,
+        "answer": graph_result["answer"],
         "safety_notice": SAFETY_NOTICE,
-        "source_status": "no_indexed_documents",
-        "citations": [],
+        "source_status": graph_result["source_status"],
+        "citations": graph_result["citations"],
         "safety_flags": assistant_message.safety_flags,
-        "graph": {
-            "executed": False,
-            "version": None,
-            "path": ["no_knowledge_placeholder"],
-        },
+        "graph": graph_result["graph"],
     }
 
 
@@ -88,3 +91,13 @@ def _authenticated_user_or_none(user):
     if isinstance(user, AnonymousUser) or not getattr(user, "is_authenticated", False):
         return None
     return user
+
+
+def _message_type_for_source_status(source_status: str) -> str:
+    if source_status == "retrieved":
+        return "graph_retrieval_context"
+    if source_status == "urgent_escalation":
+        return "graph_urgent_escalation"
+    if source_status == "low_confidence":
+        return "graph_low_confidence"
+    return "graph_no_source"

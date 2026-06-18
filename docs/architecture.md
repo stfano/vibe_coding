@@ -33,13 +33,14 @@ Active model apps:
 - `apps.chat`: chat session and message persistence.
 - `apps.knowledge`: external Q&A records, knowledge sources, documents, chunks, and index jobs.
 - `apps.rag`: embedding adapter boundary and citation-only retrieval service.
+- `apps.graph`: minimal non-LLM chat safety router.
 
 Non-streaming APIs should use the standard response envelope in `apps.common.responses`.
 
-The chat endpoint currently returns a no-knowledge placeholder and is not wired
-to retrieval. The retrieval slice can search indexed chunks and return previews
-with citation metadata for smoke testing, but it does not call an LLM and does
-not execute a LangGraph workflow yet.
+The chat endpoint executes a minimal graph-compatible safety router. It validates
+input, suppresses red-flag queries before retrieval, searches only `ready`
+documents, chooses a source status, formats a non-LLM response, and persists
+graph metadata. It does not synthesize medical answers.
 
 ## Database Configuration
 
@@ -70,9 +71,25 @@ verification mode, and `disabled` is always excluded. Verification endpoints and
 commands return snippets, scores, and citation metadata only. They do not call
 an LLM or synthesize medical guidance.
 
+## Chat Safety Router Slice
+
+`apps.graph.router` provides the first chat orchestration layer:
+
+- `validate_input`
+- `detect_red_flags`
+- `retrieve_ready_documents`
+- `decide_source_status`
+- `format_response`
+- `persist_metadata`
+
+The router returns graph path, node summaries, source status, safety flags,
+citations, and retrieved source IDs. Red-flag queries return urgent escalation
+guidance without retrieval. No ready documents or low-confidence retrieval
+returns a no-source fallback. Retrieved context is exposed for clinician review
+only; no LLM answer generation occurs in this slice.
+
 ## Out Of Scope For Milestone 2
 
 - Medical answer generation
-- Chat-integrated RAG retrieval
 - Document upload and parsing
-- LangGraph workflow execution
+- Full LangGraph answer synthesis workflow

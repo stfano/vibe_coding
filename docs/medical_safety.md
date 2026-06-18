@@ -18,6 +18,6 @@ content unless explicit permission and clinical approval exist. It must remain
 documents. `disabled` documents must never be returned by retrieval.
 
 Retrieval verification tools may show snippets and citation metadata, but they
-must not synthesize medical advice. Red-flag queries should be suppressed from
-candidate Q&A retrieval and routed to urgent escalation behavior in future graph
-workflows.
+must not synthesize medical advice. Red-flag queries are suppressed from
+candidate Q&A retrieval and routed to urgent escalation behavior by the minimal
+chat safety router.
