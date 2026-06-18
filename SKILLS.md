@@ -208,3 +208,31 @@ Checklist:
 Stop and report instead of committing or pushing when verification fails, branch
 is not `develop`, unrelated changes cannot be separated safely, credentials are
 missing, push is rejected, or a secret/local data file would be included.
+
+## Skill: Prompt Implementation Log
+
+Use after every user prompt that analyzes or changes the Doctor Chat project.
+
+Append one concise entry to `docs/prompt_implementation_log.md` before the final
+handoff. This is the user's running implementation ledger.
+
+Entry checklist:
+1. Record the timestamp and branch.
+2. Quote or summarize the user's prompt.
+3. List code/docs/config files changed in the turn.
+4. Summarize what is implemented now.
+5. Summarize what works at runtime, for example whether chat can answer,
+   whether RAG retrieval is gated by `ready` documents, and whether LLM
+   synthesis is active.
+6. Summarize known gaps and limitations.
+7. Record verification commands and pass/fail results.
+8. Record commit/push status when applicable. Report the final commit hash in
+   the final response because a commit cannot reliably contain its own final
+   hash.
+
+Rules:
+- Keep the file append-only.
+- Do not include secrets, `.env` values, raw PHI, hidden chain-of-thought,
+  generated local data, screenshots, or long logs.
+- If no files changed, still append the prompt/status summary unless the user
+  explicitly asks not to write project files.
