@@ -132,6 +132,9 @@ Each entry should include:
 - commit/push status; report the final commit hash in the final response because
   a commit cannot reliably contain its own final hash
 
+Write every new entry in Korean unless the user explicitly requests another
+language. Preserve older entries as-is.
+
 Keep entries append-only. Do not rewrite older entries except to fix a factual
 mistake in the same turn. Do not include secrets, raw PHI, hidden
 chain-of-thought, local `.env` values, logs, screenshots, or generated data.

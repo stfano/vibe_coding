@@ -232,6 +232,8 @@ Entry checklist:
 
 Rules:
 - Keep the file append-only.
+- Write every new entry in Korean unless the user explicitly requests another
+  language. Preserve older entries as-is.
 - Do not include secrets, `.env` values, raw PHI, hidden chain-of-thought,
   generated local data, screenshots, or long logs.
 - If no files changed, still append the prompt/status summary unless the user

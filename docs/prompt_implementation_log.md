@@ -5,6 +5,9 @@ verification, and git handoff results. Entries must not include secrets, local
 `.env` values, raw PHI, hidden chain-of-thought, generated local data,
 screenshots, or long logs.
 
+New entries should be written in Korean unless the user explicitly requests
+another language. Older entries are preserved as originally written.
+
 ## 2026-06-18 - Automatic per-prompt implementation ledger
 
 - Branch: `develop`
@@ -37,6 +40,27 @@ screenshots, or long logs.
   - No backend/frontend test run was needed because this turn changed only project workflow documentation.
 - Commit/push:
   - Pending before final handoff; final commit hash and push result are reported in the assistant response.
+
+## 2026-06-19 - 프롬프트 구현 로그 한국어 작성 규칙
+
+- 브랜치: `develop`
+- 사용자 요청: "`docs/prompt_implementation_log.md`에 정리할 때 한국어로 정리되게 해줘"
+- 이번 턴 변경 파일:
+  - `AGENTS.md`
+  - `SKILLS.md`
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - 앞으로 `docs/prompt_implementation_log.md`에 추가되는 새 항목은 사용자가 다른 언어를 명시하지 않는 한 한국어로 작성하도록 지침을 추가했다.
+  - 기존 로그 항목은 append-only 원칙에 따라 그대로 보존한다.
+- 실행 시점 기준 동작:
+  - 애플리케이션 런타임 코드는 변경하지 않았다.
+  - 이후 Codex 작업 정리 로그는 한국어 항목으로 누적된다.
+- 남은 한계:
+  - 이전에 영어로 작성된 항목은 기록 보존 원칙상 자동 번역하지 않았다.
+- 검증:
+  - 커밋 전 `git diff --check` 실행 예정.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
 
 ## 2026-06-18 - Next-step implementation prompt
 
