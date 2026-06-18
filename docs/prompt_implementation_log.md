@@ -37,3 +37,26 @@ screenshots, or long logs.
   - No backend/frontend test run was needed because this turn changed only project workflow documentation.
 - Commit/push:
   - Pending before final handoff; final commit hash and push result are reported in the assistant response.
+
+## 2026-06-18 - Next-step implementation prompt
+
+- Branch: `develop`
+- User prompt: "현 프로젝트에서 다음 step 으로 뭘 해야 할지 프롬프트 작성해줘 자세하고, 세밀하게 llm이 잘 수행되도록 프롬프트 작성해줘. skills, mcp, shub agent 적극 활용해줘"
+- Files changed in this turn:
+  - `docs/prompt_implementation_log.md`
+- Implemented now:
+  - No application code changed.
+  - Added this ledger entry for the prompt-design turn.
+- Current runtime implementation status:
+  - Chat can generate source-grounded answers only when `ready` chunks are retrieved with sufficient confidence and a local LLM runtime is available.
+  - RAG retrieval is review-gated; `needs_review` documents are excluded from chat.
+  - The project lacks an evaluation/golden-set workflow to repeatedly test retrieval quality, source-grounded answer behavior, citation coverage, fallback branches, and regression risk.
+- Recommended next step:
+  - Build a narrow evaluation and chat smoke-test workbench before expanding crawling or adding streaming. This gives a repeatable way to prove the current 100-record sample and reviewed ready subset actually produce useful source-grounded answers.
+- MCP/sub-agent notes:
+  - Sub-agent spawning was unavailable because the agent thread limit was reached.
+  - Postgres MCP query was attempted but failed with a self-signed certificate chain error, so the next-step prompt should require local DB status discovery inside the implementation turn.
+- Verification for this turn:
+  - Pending before final handoff.
+- Commit/push:
+  - Pending before final handoff; final commit hash and push result are reported in the assistant response.
