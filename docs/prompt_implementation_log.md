@@ -8,6 +8,30 @@ screenshots, or long logs.
 New entries should be written in Korean unless the user explicitly requests
 another language. Older entries are preserved as originally written.
 
+## 2026-06-19 - 웹 질문/답변 가능 상태와 다음 단계 프롬프트 정리
+
+- 브랜치: `develop`
+- 사용자 요청: "현재 프로젝트 상황이 웹사이트를 통해 질문 답변 가능해? 아니라면 어느 정도 step 이후에 가능한지, 현재 진행상황과 다음 step 프롬프트를 알려줘."
+- 이번 턴 변경 파일:
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - 애플리케이션 코드는 변경하지 않았다.
+  - 현재 코드와 문서 기준으로 웹 UI 질문/답변 가능 수준, 남은 한계, 다음 구현 step을 정리했다.
+- 실행 시점 기준 동작:
+  - 프론트엔드에는 `Chat Workspace`가 있고 `/api/chat/messages/`로 질문을 보낸다.
+  - 백엔드 chat API는 graph-compatible router를 실행하고, `ready` 문서가 충분히 검색되면 LLM adapter를 호출해 source-grounded answer를 만든다.
+  - Supabase에는 HiDoc PD000 sample 100건, KnowledgeDocument 100건, KnowledgeChunk 115건, controlled smoke용 `ready` 문서 1건이 있다.
+  - deterministic evaluation은 4개 case가 모두 통과한 상태다.
+- 현재 한계:
+  - 실제 브라우저 운영 수준으로 안정화하려면 dev server 실행, Ollama runtime/model 준비, 실제 chat smoke test, 에러 UX 개선이 필요하다.
+  - full LangGraph runtime, LangChain retriever wiring, prompt registry, streaming chat, graph debug UI, document upload/parsing은 아직 미구현이다.
+- 도구 확인:
+  - Docker MCP는 `/var/run/docker.sock` 접근 실패로 현재 컨테이너 실행 여부를 확인하지 못했다.
+- 검증:
+  - 이번 턴은 상태 분석과 문서 로그만 변경했으므로 커밋 전 `git diff --check`를 실행한다.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
 ## 2026-06-19 - HiDoc PD000 controlled ready-review workflow
 
 - 브랜치: `develop`
