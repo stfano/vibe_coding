@@ -84,6 +84,27 @@ another language. Older entries are preserved as originally written.
 - 커밋/푸시:
   - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
 
+## 2026-06-19 - 다음 단계 구현 프롬프트 작성
+
+- 브랜치: `develop`
+- 사용자 요청: "다음 진행해야할 step 프롬프트 작성해서 알려줘."
+- 이번 턴 변경 파일:
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - 애플리케이션 코드는 변경하지 않았다.
+  - 현재 프로젝트 상태를 기준으로 다음 구현 단계 프롬프트를 작성했다.
+- 실행 시점 기준 동작:
+  - evaluation workbench는 구현되어 있고 deterministic fallback/red-flag smoke run은 가능하다.
+  - Supabase에는 현재 `ready` 문서가 없어 retrieved/LLM 경로의 실데이터 evaluation은 아직 실행되지 못한다.
+- 추천 다음 단계:
+  - HiDoc PD000 샘플에서 소수 문서를 검수해 `ready`로 승격하고, deterministic/Ollama 평가를 통해 retrieved 경로, citation, LLM synthesis를 실제 DB 기준으로 검증하는 slice를 진행한다.
+- 남은 한계:
+  - full crawl, prompt registry, streaming chat, full LangGraph runtime, LangChain retriever wiring은 아직 다음다음 단계로 남긴다.
+- 검증:
+  - 문서 변경만 있으므로 `git diff --check`를 실행한다.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
 ## 2026-06-19 - 프롬프트 구현 로그 한국어 작성 규칙
 
 - 브랜치: `develop`
