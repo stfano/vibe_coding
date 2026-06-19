@@ -1,6 +1,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 
 import { apiBaseUrl, type ChatData, type Envelope, type HealthData } from "./api";
+import { EvaluationPanel } from "./EvaluationPanel";
 import { ReviewQueuePanel } from "./ReviewQueuePanel";
 import { SearchVerificationPanel } from "./SearchVerificationPanel";
 
@@ -137,6 +138,8 @@ export default function App() {
           <ReviewQueuePanel />
 
           <SearchVerificationPanel />
+
+          <EvaluationPanel />
 
           <section className="panel chat-panel">
             <h2>Chat Workspace</h2>

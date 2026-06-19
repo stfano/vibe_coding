@@ -53,6 +53,8 @@ class ChatGraphState:
     message: str
     top_k: int = DEFAULT_TOP_K
     low_confidence_threshold: float = DEFAULT_LOW_CONFIDENCE_THRESHOLD
+    source: str | None = None
+    department_code: str | None = None
     graph_path: list[str] = field(default_factory=list)
     node_summaries: list[NodeTrace] = field(default_factory=list)
     red_flag_terms: list[str] = field(default_factory=list)
@@ -74,13 +76,20 @@ def run_chat_safety_graph(
     top_k: int = DEFAULT_TOP_K,
     embedding_adapter: EmbeddingAdapter | None = None,
     llm_adapter: ChatLLMAdapter | None = None,
+    source: str | None = None,
+    department_code: str | None = None,
+    low_confidence_threshold: float | None = None,
 ) -> dict[str, Any]:
     state = ChatGraphState(
         message=message,
         top_k=top_k,
-        low_confidence_threshold=float(
-            getattr(settings, "CHAT_RAG_LOW_CONFIDENCE_THRESHOLD", DEFAULT_LOW_CONFIDENCE_THRESHOLD)
+        low_confidence_threshold=(
+            low_confidence_threshold
+            if low_confidence_threshold is not None
+            else float(getattr(settings, "CHAT_RAG_LOW_CONFIDENCE_THRESHOLD", DEFAULT_LOW_CONFIDENCE_THRESHOLD))
         ),
+        source=source,
+        department_code=department_code,
     )
     _run_node(state, "validate_input", _validate_input)
     _run_node(state, "detect_red_flags", _detect_red_flags)
@@ -135,6 +144,8 @@ def _retrieve_ready_documents(
         state.message,
         top_k=state.top_k,
         embedding_adapter=adapter,
+        source=state.source,
+        department_code=state.department_code,
         include_needs_review=False,
     )
     state.citations = [result.citation for result in state.retrieved_results]

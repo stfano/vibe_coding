@@ -125,6 +125,57 @@ export type SearchVerificationData = {
   }>;
 };
 
+export type EvaluationRunSummary = {
+  id: number;
+  dataset: string;
+  dataset_version: string;
+  status: "running" | "succeeded" | "failed";
+  llm_provider: string;
+  model_name: string;
+  prompt_version: string;
+  total_cases: number;
+  passed_cases: number;
+  failed_cases: number;
+  skipped_cases: number;
+  error_summary: string;
+  created_at: string;
+  finished_at: string | null;
+};
+
+export type EvaluationRunListData = {
+  results: EvaluationRunSummary[];
+};
+
+export type EvaluationRunDetailData = {
+  run: EvaluationRunSummary;
+  results: Array<{
+    id: number;
+    case_key: string;
+    query: string;
+    status: "passed" | "failed" | "skipped";
+    source_status: string;
+    llm_executed: boolean;
+    model_name: string;
+    prompt_version: string;
+    safety_flags: string[];
+    citations: Array<{
+      title?: string;
+      source?: string;
+      source_url?: string;
+      external_question_id?: string;
+      external_answer_id?: string;
+      department?: string;
+      department_code?: string;
+      chunk_index?: number;
+    }>;
+    retrieved_source_ids: number[];
+    graph_path: string[];
+    checks: Record<string, boolean>;
+    answer_preview: string;
+    error_summary: string;
+  }>;
+};
+
 export async function fetchEnvelope<T>(path: string, init?: RequestInit): Promise<Envelope<T>> {
   const response = await fetch(`${apiBaseUrl}${path}`, init);
   const body = (await response.json()) as Envelope<T>;

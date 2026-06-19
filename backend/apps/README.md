@@ -16,10 +16,10 @@ Active model areas:
 - `knowledge`: review-gate APIs for document list/detail/status updates and retrieval verification
 - `rag`: embedding adapters, local chat LLM adapters, and knowledge chunk retrieval, defaulting to ready documents only
 - `graph`: minimal chat router for validation, red-flag suppression, ready-document retrieval, source-status decisions, source-grounded synthesis, and graph metadata
+- `evaluation`: golden-set chat/RAG smoke datasets, runs, results, admin registrations, and read-only run APIs
 
 Future app shells remain:
 
-- `evaluation`
 - `adminx`
 
 Views should stay thin. Domain logic should live in service modules, graph logic in `graph`, and retrieval/prompt/citation helpers in `rag`.

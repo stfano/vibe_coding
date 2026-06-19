@@ -324,6 +324,44 @@ Expected successful retrieved responses include `source_status: "retrieved"`,
 `graph.prompt_version`. Red-flag, no-ready-document, and low-confidence branches
 return fallback responses with `llm_executed: false`.
 
+## Evaluation Workbench
+
+Seed a small repeatable golden-set for the existing chat graph. This command
+does not crawl HiDoc; it only inspects already indexed local database rows:
+
+```bash
+cd backend
+python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000
+```
+
+If no `ready` document exists, retrieved and low-confidence cases are skipped.
+For a local-only smoke run, explicitly promote one review-pending document:
+
+```bash
+cd backend
+python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000 --promote-one-ready-for-local-smoke
+```
+
+Run the evaluation through the existing chat graph with the deterministic LLM
+adapter:
+
+```bash
+cd backend
+python manage.py run_chat_eval --dataset hidoc-pediatric-smoke --llm-provider deterministic
+```
+
+Expected output includes `total`, `passed`, `failed`, `skipped`, `model`,
+`prompt_version`, and `result_ids`. A passing run verifies source status,
+LLM execution rules, citation metadata, graph metadata, fallback branches, and
+prompt/model metadata. Recent runs are also visible through:
+
+- `GET /api/evaluation/datasets/`
+- `GET /api/evaluation/runs/`
+- `GET /api/evaluation/runs/<id>/`
+
+The frontend `Evaluation Runs` panel shows recent run summaries and failed case
+checks without hidden chain-of-thought.
+
 ## Development Rules
 
 Before making non-trivial changes, read:
@@ -347,11 +385,11 @@ When adding medical RAG behavior:
 
 ## Next Practical Milestones
 
-1. Add an evaluation dataset and retrieval metrics for ready documents.
-2. Promote a small reviewed subset of synthetic or approved documents to `ready`.
-3. Compare deterministic embeddings with the HTTP Korean embedding service.
-4. Add prompt registry and offline answer-quality evaluation for source-grounded chat.
-5. Add streaming chat and an operational debug/log viewer in the frontend.
+1. Promote a small reviewed subset of synthetic or approved documents to `ready`.
+2. Compare deterministic embeddings with the HTTP Korean embedding service.
+3. Add prompt registry and richer offline answer-quality evaluation.
+4. Add streaming chat and an operational debug/log viewer in the frontend.
+5. Add document upload/parsing for approved local knowledge.
 
 ## Security Note
 

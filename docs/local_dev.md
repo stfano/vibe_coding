@@ -115,6 +115,27 @@ Retrieved responses should include `source_status: "retrieved"`,
 `graph.prompt_version`. Red-flag, no-ready-document, and low-confidence paths
 keep `llm_executed: false`.
 
+Seed and run the chat/RAG evaluation smoke dataset without crawling external
+sources:
+
+```bash
+docker compose exec backend python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000
+docker compose exec backend python manage.py run_chat_eval --dataset hidoc-pediatric-smoke --llm-provider deterministic
+```
+
+If there are no `ready` documents, retrieved and low-confidence cases are
+skipped. For a local-only smoke test, explicitly promote one review-pending
+document:
+
+```bash
+docker compose exec backend python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000 --promote-one-ready-for-local-smoke
+```
+
+Evaluation output reports `total`, `passed`, `failed`, `skipped`, model name,
+prompt version, and result IDs. A passing run means the graph returned expected
+source statuses, kept fallback branches LLM-free, and included citations where
+retrieval was expected.
+
 For parser/network verification without database writes:
 
 ```bash

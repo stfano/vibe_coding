@@ -142,6 +142,11 @@ textarea {
   font-weight: 650;
 }
 
+.eval-summary {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 12px;
+}
+
 .service-list {
   display: grid;
   gap: 4px;
