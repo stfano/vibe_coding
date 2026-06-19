@@ -306,6 +306,45 @@ Review and verification API surface:
 - `PATCH /api/knowledge/documents/<id>/status/`
 - `GET /api/knowledge/search/verify/`
 
+## Controlled Ready Review For Evaluation
+
+Use the CLI review workflow to inspect a small, already indexed HiDoc PD000
+sample before enabling the real retrieved + LLM synthesis path. This command
+does not crawl HiDoc and does not print full question or answer bodies:
+
+```bash
+cd backend
+python manage.py prepare_ready_smoke_docs --source hidoc --department-code PD000 --limit 3 --dry-run
+```
+
+Promote only an explicitly selected document after reviewing the summary and
+source URL:
+
+```bash
+cd backend
+python manage.py prepare_ready_smoke_docs --source hidoc --department-code PD000 --document-id 1 --mark-ready --confirm
+```
+
+The action is reversible:
+
+```bash
+cd backend
+python manage.py prepare_ready_smoke_docs --source hidoc --department-code PD000 --document-id 1 --mark-needs-review --confirm
+```
+
+After one controlled document is `ready`, reseed and run the deterministic
+evaluation:
+
+```bash
+cd backend
+python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000
+python manage.py run_chat_eval --dataset hidoc-pediatric-smoke --llm-provider deterministic
+```
+
+For the current smoke dataset, `total=4 passed=4 failed=0 skipped=0` means the
+real ready-document retrieved path, low-confidence fallback, no-ready-doc
+fallback, and red-flag suppression all matched the expected graph behavior.
+
 ## Source-Grounded Chat Smoke Test
 
 Chat answer synthesis only uses `ready` knowledge documents. After reviewing at

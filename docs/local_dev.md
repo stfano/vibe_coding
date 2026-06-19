@@ -124,17 +124,41 @@ docker compose exec backend python manage.py run_chat_eval --dataset hidoc-pedia
 ```
 
 If there are no `ready` documents, retrieved and low-confidence cases are
-skipped. For a local-only smoke test, explicitly promote one review-pending
-document:
+skipped. For a controlled local smoke test, first inspect a few review-pending
+HiDoc PD000 documents without printing full question/answer bodies:
 
 ```bash
-docker compose exec backend python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000 --promote-one-ready-for-local-smoke
+docker compose exec backend python manage.py prepare_ready_smoke_docs --source hidoc --department-code PD000 --limit 3 --dry-run
+```
+
+After checking the title, source URL, external IDs, chunk count, and short
+preview, promote only a selected document:
+
+```bash
+docker compose exec backend python manage.py prepare_ready_smoke_docs --source hidoc --department-code PD000 --document-id 1 --mark-ready --confirm
+```
+
+The promotion is reversible:
+
+```bash
+docker compose exec backend python manage.py prepare_ready_smoke_docs --source hidoc --department-code PD000 --document-id 1 --mark-needs-review --confirm
+```
+
+Then reseed and rerun evaluation:
+
+```bash
+docker compose exec backend python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000
+docker compose exec backend python manage.py run_chat_eval --dataset hidoc-pediatric-smoke --llm-provider deterministic
 ```
 
 Evaluation output reports `total`, `passed`, `failed`, `skipped`, model name,
 prompt version, and result IDs. A passing run means the graph returned expected
 source statuses, kept fallback branches LLM-free, and included citations where
-retrieval was expected.
+retrieval was expected. For the current smoke dataset, `total=4 passed=4
+failed=0 skipped=0` means ready retrieval, low-confidence fallback,
+no-ready-doc fallback, and red-flag suppression all passed. The older
+`--promote-one-ready-for-local-smoke` seed option remains available for quick
+local experiments, but the explicit review command is preferred.
 
 For parser/network verification without database writes:
 

@@ -8,6 +8,53 @@ screenshots, or long logs.
 New entries should be written in Korean unless the user explicitly requests
 another language. Older entries are preserved as originally written.
 
+## 2026-06-19 - HiDoc PD000 controlled ready-review workflow
+
+- 브랜치: `develop`
+- 사용자 요청: "기존 HiDoc pediatric sample에 대해 controlled ready-review workflow를 만들고, Supabase 데이터로 retrieved + LLM synthesis evaluation 경로를 검증해줘. full HiDoc crawling은 실행하지 말아줘."
+- 이번 턴 변경 파일:
+  - `backend/apps/knowledge/management/commands/prepare_ready_smoke_docs.py`
+  - `backend/apps/knowledge/tests/test_prepare_ready_smoke_docs.py`
+  - `README.md`
+  - `docs/local_dev.md`
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - `prepare_ready_smoke_docs` Django management command를 추가했다.
+  - `--dry-run`으로 HiDoc PD000 `needs_review` 후보를 문서 ID, 제목, source URL, external question/answer ID, chunk count, 짧은 preview만 출력한다.
+  - 후보 선정은 `disabled` 문서, chunk 없는 문서, citation metadata 없는 chunk 문서를 제외한다.
+  - `--mark-ready --document-id ... --confirm`으로 명시한 문서만 `ready`로 승격한다.
+  - `--mark-needs-review --document-id ... --confirm`으로 승격 상태를 되돌릴 수 있다.
+  - README와 local dev 문서에 dry-run, mark-ready, revert, evaluation 재실행, `total=4 passed=4` 해석을 추가했다.
+- 실행 시점 기준 동작:
+  - 기존 Review Queue 프론트는 이미 `needs_review`, `ready`, `disabled` 필터와 상태 변경을 보여주므로 UI 변경은 하지 않았다.
+  - Supabase 기준 `ExternalQnaRecord`는 `hidoc`/`PD000` 100건이다.
+  - Supabase 기준 `KnowledgeDocument`는 `PD000`에서 `ready` 1건, `needs_review` 99건이다.
+  - Supabase 기준 `KnowledgeChunk`는 `PD000` 115건이다.
+  - 문서 ID 1을 controlled smoke용으로 `ready` 승격했다.
+  - `hidoc-pediatric-smoke` dataset은 ready 문서 존재 후 4개 케이스로 seed되며, deterministic evaluation run은 retrieved, low-confidence, no-ready-doc, red-flag 경로를 모두 검증한다.
+- Supabase 검증 결과:
+  - `prepare_ready_smoke_docs --source hidoc --department-code PD000 --limit 3 --dry-run`: 통과, 후보 3건 출력, 원문 전체 미출력.
+  - `prepare_ready_smoke_docs --source hidoc --department-code PD000 --document-id 1 --mark-ready --confirm`: 통과, `changed=1`.
+  - `seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000`: 통과, `cases=4`, `skipped_ready_cases=0`.
+  - `run_chat_eval --dataset hidoc-pediatric-smoke --llm-provider deterministic`: 통과, `run_id=2`, `total=4 passed=4 failed=0 skipped=0`.
+  - retrieved case는 citation 1개, retrieved source ID `[1]`, model `llama3.1:8b`, prompt version `source_grounded_answer_v1`을 포함했다.
+  - red-flag, no-ready-doc, low-confidence case는 모두 `llm_executed=false`였다.
+- 로컬 검증:
+  - `pytest apps/knowledge apps/evaluation apps/chat apps/graph apps/rag`: 통과, 55 passed.
+  - `ruff check apps/knowledge apps/evaluation apps/chat apps/graph apps/rag`: 통과.
+  - `python3 manage.py makemigrations --check --dry-run`: 통과, 변경 없음.
+  - 프론트엔드 파일은 변경하지 않아 `npm --prefix frontend run build`는 실행하지 않았다.
+- MCP/sub-agent 사용 결과:
+  - Postgres MCP query는 SSL self-signed certificate chain 오류로 실패했다.
+  - Django ORM을 통해 Supabase 상태를 안전하게 조회했다.
+  - sub-agent spawn은 thread limit으로 실패해 로컬 코드 검토로 대체했다.
+- 남은 한계:
+  - full HiDoc crawling은 실행하지 않았다.
+  - 실제 Ollama 기반 LLM smoke는 이번 턴에서 실행하지 않았다. deterministic adapter로 graph/evaluation 경로를 검증했다.
+  - full LangGraph runtime, LangChain retriever wiring, prompt registry, streaming chat, document upload/parsing은 아직 다음 단계로 남아 있다.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
 ## 2026-06-18 - Automatic per-prompt implementation ledger
 
 - Branch: `develop`
