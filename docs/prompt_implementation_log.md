@@ -350,3 +350,24 @@ another language. Older entries are preserved as originally written.
   - 커밋 전 `git diff --check`를 실행한다.
 - 커밋/푸시:
   - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
+## 2026-06-22 15:52:38 KST - 다음 구현 단계 및 프롬프트 제안
+
+- 브랜치: `develop`
+- 사용자 요청: "다음 step으로 진행해야 할 작업 및 프롬프트 알려줘."
+- 이번 턴 변경 파일:
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - 애플리케이션 코드는 변경하지 않았다.
+  - 현재 검색 검증이 deterministic token-hash embedding과 cosine/pgvector 기반으로 동작한다는 점을 전제로 다음 구현 단계를 정리했다.
+  - 다음 step으로 실제 semantic embedding/reranker 기반 검색 품질 개선과 검색 검증 UI의 투명성 보강을 제안했다.
+- 실행 시점 기준 동작:
+  - Supabase Postgres의 HiDoc PD000 ready chunk를 대상으로 검색과 source-grounded chat이 동작한다.
+  - Search Verification은 query rewrite, NER, reranking 없이 raw query embedding 검색만 수행한다.
+- 남은 한계:
+  - 실제 sentence-transformers embedding/reranker, query rewrite, NER, LangChain retriever, full LangGraph runtime은 아직 미구현이다.
+  - 현재 추천 프롬프트는 embedding/reranker와 검색 검증 강화에 초점을 둔다.
+- 검증:
+  - 문서/분석 로그 변경만 있으므로 `git diff --check`를 실행한다.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
