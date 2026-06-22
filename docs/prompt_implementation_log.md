@@ -328,3 +328,25 @@ another language. Older entries are preserved as originally written.
   - Pending before final handoff.
 - Commit/push:
   - Pending before final handoff; final commit hash and push result are reported in the assistant response.
+
+## 2026-06-22 13:33:30 KST - 로컬 실행 방법 및 UI 기능 안내
+
+- 브랜치: `develop`
+- 사용자 요청: "현 프로젝트 구현된 것을 직접 테스트해보려고 하는데, 로컬 실행 방법과 실행 시 각 UI 기능을 알려줘."
+- 이번 턴 변경 파일:
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - 애플리케이션 코드는 변경하지 않았다.
+  - 현재 문서와 프론트엔드 컴포넌트를 기준으로 로컬 Docker 실행 절차, 선택적 Ollama 실행, 주요 URL, UI 패널별 기능을 정리했다.
+- 실행 시점 기준 동작:
+  - Docker Compose로 backend, frontend, embedding-service, redis, minio를 실행할 수 있고 `llm` profile로 Ollama를 추가 실행할 수 있다.
+  - frontend는 Backend Health, Local Services, Review Queue, Search Verification, Evaluation Runs, Chat Workspace 패널을 제공한다.
+  - chat은 ready 문서 검색 성공 시 source-grounded LLM 답변을 표시하고, fallback/red-flag 경로에서는 LLM 실행을 억제한다.
+- 남은 한계:
+  - full LangGraph `StateGraph`, streaming chat, prompt registry, graph debug UI, document upload/parsing, production auth policy는 아직 미구현이다.
+  - Review Queue와 Search Verification은 현재 HiDoc PD000 샘플 중심으로 고정되어 있다.
+- 검증:
+  - 문서/코드 읽기 중심 안내 작업이며 애플리케이션 검증 명령은 실행하지 않았다.
+  - 커밋 전 `git diff --check`를 실행한다.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
