@@ -12,7 +12,7 @@ from apps.rag.retrieval import KnowledgeSearchResult
 
 
 SOURCE_GROUNDED_PROMPT_VERSION = "source_grounded_answer_v1"
-DEFAULT_CHAT_LLM_MODEL = "llama3.1:8b"
+DEFAULT_CHAT_LLM_MODEL = "llama3.2:1b"
 
 
 class LLMError(RuntimeError):
@@ -154,7 +154,7 @@ def get_chat_llm_adapter(
         return OllamaChatLLMAdapter(
             base_url=getattr(settings, "OLLAMA_BASE_URL", "http://localhost:11434"),
             model_name=resolved_model,
-            timeout=float(getattr(settings, "CHAT_LLM_TIMEOUT", 30.0)),
+            timeout=float(getattr(settings, "CHAT_LLM_TIMEOUT", 180.0)),
         )
     if resolved_provider == "deterministic":
         return DeterministicChatLLMAdapter(model_name=resolved_model)

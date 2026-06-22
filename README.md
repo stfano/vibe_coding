@@ -73,7 +73,6 @@ Medical answer generation must remain source-grounded, cite retrieved evidence, 
 - document upload and parsing
 - production embedding/reranking models beyond deterministic scaffold
 - prompt registry/versioning
-- evaluation/golden-set workflows
 - streaming chat over SSE or WebSocket
 - graph debug trace viewer
 - production authentication/authorization policy
@@ -93,7 +92,7 @@ Medical answer generation must remain source-grounded, cite retrieved evidence, 
 │       ├── knowledge/       # external Q&A ingestion and knowledge indexing
 │       ├── rag/             # embedding, retrieval, and local LLM adapter helpers
 │       ├── graph/           # graph-compatible chat router
-│       ├── evaluation/      # future evaluation flows
+│       ├── evaluation/      # golden-set evaluation datasets, runs, and APIs
 │       └── adminx/          # future admin-facing APIs
 ├── frontend/                # React + Vite + TypeScript UI
 ├── embedding-service/       # FastAPI scaffold for embeddings/reranking
@@ -184,15 +183,15 @@ first:
 
 ```bash
 docker compose --profile llm up -d ollama
-docker compose exec ollama ollama pull llama3.1:8b
+docker compose exec ollama ollama pull llama3.2:1b
 ```
 
 Chat LLM configuration is read from environment variables:
 
 ```bash
 CHAT_LLM_PROVIDER=ollama
-CHAT_LLM_MODEL=llama3.1:8b
-CHAT_LLM_TIMEOUT=30
+CHAT_LLM_MODEL=llama3.2:1b
+CHAT_LLM_TIMEOUT=180
 OLLAMA_BASE_URL=http://ollama:11434
 ```
 
@@ -352,7 +351,7 @@ least one indexed document to `ready`, run Ollama and send a query:
 
 ```bash
 docker compose --profile llm up -d ollama
-docker compose exec ollama ollama pull llama3.1:8b
+docker compose exec ollama ollama pull llama3.2:1b
 curl -sS -X POST http://localhost:8000/api/chat/messages/ \
   -H "Content-Type: application/json" \
   -d '{"message":"아기 고환 물집 아기띠"}'

@@ -1,6 +1,6 @@
 # Doctor Chat Architecture
 
-Milestone 2 establishes the local development shape and the first backend operating patterns.
+Milestone 2 established the local development shape and the first backend operating patterns. The current slice adds review-gated knowledge retrieval, source-grounded local answer synthesis, and a deterministic evaluation workflow.
 
 ## Services
 
@@ -25,6 +25,8 @@ Active APIs:
 
 - `apps.health`: `GET /api/health/`
 - `apps.chat`: `POST /api/chat/messages/`
+- `apps.knowledge`: document review list/detail/status APIs and retrieval verification.
+- `apps.evaluation`: dataset and run read-only APIs.
 
 Active model apps:
 
@@ -34,6 +36,7 @@ Active model apps:
 - `apps.knowledge`: external Q&A records, knowledge sources, documents, chunks, and index jobs.
 - `apps.rag`: embedding adapter boundary, retrieval service, and local chat LLM adapters.
 - `apps.graph`: minimal graph-compatible chat router.
+- `apps.evaluation`: golden-set chat/RAG smoke datasets, runs, and results.
 
 Non-streaming APIs should use the standard response envelope in `apps.common.responses`.
 

@@ -1,0 +1,11 @@
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+*.sqlite3
+db.sqlite3
+htmlcov/
+.coverage
+.venv/
+venv/
+ingestion.log

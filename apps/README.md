@@ -2,17 +2,17 @@
 
 This repository keeps backend Django apps under `backend/apps`.
 
-Milestone 2 activates the auth, logging, and chat foundations:
+Milestone 2 activated the auth, logging, and chat foundations. The current slice also includes review-gated knowledge retrieval, source-grounded synthesis, and evaluation smoke workflows:
 
 - `common`: shared response envelope and utilities
 - `health`: local service health endpoint
 - `authx`: Django auth profile extension with department and role models
 - `loggingx`: API request, login, service, and chat log models
-- `chat`: chat session/message models and a non-streaming no-knowledge endpoint
-- `knowledge`: future document metadata and indexing jobs
-- `rag`: future LangChain retrieval, citation, and prompt helpers
-- `graph`: future LangGraph state, nodes, edges, and runner
-- `evaluation`: future test-query and safety evaluation flows
+- `chat`: chat session/message models and a non-streaming graph-backed endpoint
+- `knowledge`: external Q&A records, document/chunk indexing, review gates, and retrieval verification APIs
+- `rag`: embedding adapters, retrieval helpers, citation metadata, and local LLM adapters
+- `graph`: minimal graph-compatible safety router with ready-document retrieval and source-grounded synthesis
+- `evaluation`: golden-set chat/RAG smoke datasets, runs, results, and read-only APIs
 - `adminx`: future admin-facing APIs
 
 Do not put clinical decision logic in Django views. Keep orchestration and domain behavior in focused app modules.

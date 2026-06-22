@@ -2,7 +2,7 @@
 
 Doctor Chat is clinician-support software. It must not act as an autonomous diagnostic authority or a public symptom checker.
 
-Milestone 1 does not generate medical answers. Later milestones must preserve these rules:
+The current retrieved path can generate source-grounded clinician-support answers from reviewed `ready` knowledge documents. All generated behavior must preserve these rules:
 
 - Do not present generated content as a replacement for clinician judgment.
 - Do not provide definitive diagnoses without sufficient source-grounded clinical context.

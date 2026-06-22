@@ -112,6 +112,115 @@ another language. Older entries are preserved as originally written.
 - Commit/push:
   - Pending before final handoff; final commit hash and push result are reported in the assistant response.
 
+## 2026-06-22 13:27:37 KST - source-grounded chat runtime 검증 루프 종료
+
+- 브랜치: `develop`
+- 사용자 요청: "새 기능을 추가하지 말고 source-grounded chat runtime verification loop를 먼저 닫아줘."
+- 이번 턴 변경 파일:
+  - `README.md`
+  - `apps/README.md`
+  - `docs/architecture.md`
+  - `docs/medical_safety.md`
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - 애플리케이션 기능 코드는 변경하지 않았다.
+  - 현재 dirty worktree를 분리해 Docker/Ollama 기본값 변경, `.dockerignore` 추가, 로컬 Playwright/Codex 산출물을 구분했다.
+  - source-grounded chat runtime과 evaluation smoke를 Docker Compose 환경에서 검증했다.
+  - 현재 구현과 어긋난 문서 drift만 최소 수정했다.
+- 실행 시점 기준 동작:
+  - Docker Compose `llm` profile로 backend, frontend, embedding-service, redis, minio, ollama가 실행된다.
+  - HiDoc PD000에는 100개 외부 Q&A, 2개 `ready` 문서, 2개 ready chunk가 있다.
+  - Ollama `llama3.2:1b` 기반 chat POST가 `source_status=retrieved`, `llm_executed=true`, citations 2개, `model_name=llama3.2:1b`, `prompt_version=source_grounded_answer_v1`를 반환했다.
+  - deterministic evaluation run은 4개 케이스 모두 통과했고, red-flag/no-ready/low-confidence fallback은 LLM을 실행하지 않았다.
+  - Playwright MCP에서 `http://localhost:5173`의 Backend online, Review Queue, Search Verification, Evaluation Runs, Chat Workspace 표시와 retrieval/search/chat UI 동작을 확인했다.
+- 남은 한계:
+  - active graph는 아직 실제 LangGraph `StateGraph` 런타임이 아니라 graph-compatible router다.
+  - streaming, prompt registry, graph debug UI, document upload/parsing, production auth policy는 아직 미구현이다.
+  - host Python pytest는 처음에 `bs4` 미설치로 collection 실패했지만, `/tmp/doctor_llm_pydeps`에 `beautifulsoup4`를 설치한 뒤 동일 범위가 통과했다.
+  - `.codex/`, `.playwright-mcp/`, `doctor-chat-ui-verified.png`는 로컬 산출물로 커밋 대상에서 제외해야 한다.
+- 검증:
+  - `docker compose --profile llm up -d --build`: 통과.
+  - `docker compose ps`: backend, frontend, embedding-service, redis, minio, ollama 실행 확인.
+  - `curl -fsS http://127.0.0.1:8000/api/health/`: 통과.
+  - `curl -fsS http://127.0.0.1:5173/`: 통과.
+  - `docker compose exec ollama ollama list`: `llama3.2:1b`, `llama3.1:8b` 확인.
+  - `docker compose exec backend pytest apps/evaluation apps/chat apps/graph apps/rag apps/knowledge`: 통과, 55 passed.
+  - `PYTHONPATH=/tmp/doctor_llm_pydeps pytest apps/evaluation apps/chat apps/graph apps/rag apps/knowledge`: 통과, 55 passed.
+  - `ruff check apps/evaluation apps/chat apps/graph apps/rag apps/knowledge`: 통과.
+  - `npm --prefix frontend run build`: 통과.
+  - `docker compose exec backend python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000`: 통과, 4 cases.
+  - `docker compose exec backend python manage.py run_chat_eval --dataset hidoc-pediatric-smoke --llm-provider deterministic`: 통과, total=4 passed=4 failed=0 skipped=0.
+  - source-grounded chat API smoke: 통과, retrieved/LLM/citation/model/prompt metadata 확인.
+  - Playwright MCP browser smoke: 통과, 운영 패널과 search/chat UI 확인.
+  - `docker compose config --quiet`: 통과.
+  - `git diff --check`: 통과.
+- 커밋/푸시:
+  - unrelated/local dirty files가 함께 존재하므로 자동 커밋/푸시는 보류한다.
+
+## 2026-06-22 13:03:56 KST - 다음 단계 분석 및 실행 프롬프트 작성
+
+- 브랜치: `develop`
+- 사용자 요청: "지금 나의 프로젝트 상황에서 다음 step이 뭔지 알려주고 그에 맞는 프롬프트 작성해서 알려줘 mcp, subagent, skill 적극 활용해서"
+- 이번 턴 변경 파일:
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - 애플리케이션 코드는 변경하지 않았다.
+  - `superpowers` skills와 병렬 subagent를 사용해 백엔드/RAG, 프론트 운영 UI, 테스트/문서/최근 상태를 분리 분석했다.
+  - 다음 단계는 새 기능 추가보다 현재 dirty worktree와 미완료 runtime smoke 검증을 먼저 닫는 것으로 판단했다.
+- 실행 시점 기준 동작:
+  - 채팅은 ready 문서 검색, citation, source-grounded LLM 합성, red-flag/no-ready/low-confidence 분기를 지원한다.
+  - evaluation workbench와 review/search verification UI가 존재한다.
+  - 실제 LangGraph `StateGraph` 런타임, streaming, prompt registry, graph debug UI, document upload pipeline은 아직 다음 단계로 남아 있다.
+- 남은 한계:
+  - 현재 작업 트리에 이전 변경 및 로컬 산출물이 섞여 있어 이 분석 턴의 로그 변경만 안전하게 커밋하기 어렵다.
+  - 이 턴에서는 Docker/Ollama/browser smoke를 직접 재실행하지 않았다.
+- 검증:
+  - `git diff --check` 실행 예정.
+- 커밋/푸시:
+  - unrelated dirty worktree 때문에 이 턴에서 커밋/푸시는 중단하고 최종 응답에서 사유를 보고한다.
+
+## 2026-06-19 - WSL Docker Compose 빌드 안정화 및 Ollama 로컬 스모크 기본값 조정
+
+- 브랜치: `develop`
+- 사용자 요청: "`docker compose up --build`에서 `failed to fetch metadata: signal: bus error`가 나는데 WSL Docker/Ollama/Playwright까지 직접 실행해 질문 답변이 되는지 테스트하고 오류 없이 동작되도록 수정해줘."
+- 이번 턴 변경 파일:
+  - `backend/.dockerignore`
+  - `frontend/.dockerignore`
+  - `embedding-service/.dockerignore`
+  - `docker-compose.yml`
+  - `.env.example`
+  - `backend/config/settings.py`
+  - `backend/apps/rag/llms.py`
+  - `README.md`
+  - `docs/local_dev.md`
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - Docker build context에 캐시, 가상환경, node_modules, 로그 파일이 들어가지 않도록 서비스별 `.dockerignore`를 추가했다.
+  - Docker Desktop 잔여 user-local CLI/plugin 충돌을 정리하고 WSL Docker CLI/Compose/Buildx 경로가 정상 동작하는지 확인했다.
+  - `docker compose up -d --build`가 backend, frontend, embedding-service를 끝까지 빌드하고 재기동하는 것을 확인했다.
+  - Ollama 컨테이너를 실행하고 `llama3.1:8b` 모델 pull까지 완료했다.
+  - WSL CPU 환경에서 `llama3.1:8b` 첫 로딩이 180초 안에도 완료되지 않아 chat API가 timeout 500을 반환하는 것을 로그로 확인했다.
+  - 로컬 스모크 테스트 기본 모델을 더 가벼운 `llama3.2:1b`로 변경하고 timeout 기본값을 `180`초로 올렸다. 8B 모델은 `CHAT_LLM_MODEL=llama3.1:8b`로 명시하면 계속 사용할 수 있다.
+- 실행 시점 기준 동작:
+  - `docker compose up -d --build` 경로의 Buildx metadata bus error는 재현되지 않는다.
+  - `http://localhost:5173` 프론트는 Playwright MCP에서 열렸고 Backend online, Review Queue, Evaluation Runs가 표시됐다.
+  - `http://127.0.0.1:5173`로 열면 프론트 설정이 `localhost:8000`을 호출하므로 CORS mismatch가 발생한다. 정상 테스트 URL은 `http://localhost:5173`이다.
+  - 실제 LLM 질문 답변 검증은 backend 컨테이너에 `llama3.2:1b` 기본값을 재적용한 뒤 재실행해야 한다.
+- 남은 한계:
+  - Docker backend 재생성 명령이 자동 승인 리뷰의 usage limit로 거절되어, `llama3.2:1b` 적용 후 최종 chat API/UI 질문 검증은 이 턴에서 완료하지 못했다.
+  - WSL 환경에는 `/usr/local/lib/docker/cli-plugins` 아래 Docker Desktop 잔여 root-owned symlink 경고가 남아 있을 수 있다. 완전 제거는 사용자가 sudo로 수행해야 한다.
+- 검증:
+  - `docker compose up -d --build`: 통과, backend/frontend/embedding-service 빌드 및 재기동 확인.
+  - `curl -fsS http://127.0.0.1:8000/api/health/`: 통과.
+  - `curl -fsS http://127.0.0.1:5173/`: 통과.
+  - Playwright MCP `http://localhost:5173/`: Backend online 및 운영 패널 표시 확인.
+  - `ollama pull llama3.1:8b`: 통과.
+  - `ollama pull llama3.2:1b`: 통과.
+  - `PYTHONPATH=/tmp/doctor_llm_pydeps pytest apps/rag/tests/test_llm_adapters.py`: 통과, 3 passed.
+  - `git diff --check`: 통과.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
 ## 2026-06-19 - 평가 및 채팅 스모크 테스트 워크벤치 구현
 
 - 브랜치: `develop`

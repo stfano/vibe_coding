@@ -51,15 +51,15 @@ first:
 
 ```bash
 docker compose --profile llm up -d ollama
-docker compose exec ollama ollama pull llama3.1:8b
+docker compose exec ollama ollama pull llama3.2:1b
 ```
 
 Chat generation uses these environment variables:
 
 ```bash
 CHAT_LLM_PROVIDER=ollama
-CHAT_LLM_MODEL=llama3.1:8b
-CHAT_LLM_TIMEOUT=30
+CHAT_LLM_MODEL=llama3.2:1b
+CHAT_LLM_TIMEOUT=180
 OLLAMA_BASE_URL=http://ollama:11434
 ```
 

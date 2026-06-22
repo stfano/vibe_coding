@@ -22,8 +22,8 @@ services:
       EMBEDDING_SERVICE_URL: http://embedding-service:8080
       OLLAMA_BASE_URL: http://ollama:11434
       CHAT_LLM_PROVIDER: ${CHAT_LLM_PROVIDER:-ollama}
-      CHAT_LLM_MODEL: ${CHAT_LLM_MODEL:-llama3.1:8b}
-      CHAT_LLM_TIMEOUT: ${CHAT_LLM_TIMEOUT:-30}
+      CHAT_LLM_MODEL: ${CHAT_LLM_MODEL:-llama3.2:1b}
+      CHAT_LLM_TIMEOUT: ${CHAT_LLM_TIMEOUT:-180}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
