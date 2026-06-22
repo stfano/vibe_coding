@@ -429,3 +429,47 @@ another language. Older entries are preserved as originally written.
   - `git diff --check`: 통과.
 - 커밋/푸시:
   - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
+## 2026-06-22 18:44:36 KST - Supabase/pgvector semantic retrieval verification loop
+
+- 브랜치: `develop`
+- 사용자 요청: "Supabase/Postgres + pgvector + `EMBEDDING_PROVIDER=http` + embedding-service 조합에서 실제 semantic 검색 경로를 검증하고, 필요한 최소 문서 drift만 수정해줘."
+- 이번 턴 변경 파일:
+  - `.env.example`
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - `.env.example`의 `EMBEDDING_PROVIDER` 기본값을 현재 Compose/문서 의도와 맞게 `http`로 수정했다.
+  - 로컬 `.env` 값은 수정하거나 커밋하지 않았다.
+  - 전체 HiDoc crawl 없이 기존 HiDoc PD000 데이터 중 관련 ExternalQnaRecord 6, 7, 8과 evaluation 기준 ExternalQnaRecord 1만 HTTP semantic embedding으로 재색인했다.
+  - `prepare_ready_smoke_docs --dry-run`으로 후보를 확인한 뒤 document 6만 `ready`로 승격했다.
+- 실행 시점 기준 동작:
+  - backend는 PostgreSQL을 사용 중이며 pgvector extension이 활성화되어 있다.
+  - embedding-service `/embed`는 `provider=sentence-transformers`, `model=mykor/KURE-v1`, `fallback_used=false`로 응답했다.
+  - Search Verification API는 Supabase/pgvector + HTTP embedding-service 경로에서 `embedding_transport=http`, `embedding_provider=sentence-transformers`, `embedding_dimensions=1024`, `embedding_fallback_used=false`를 반환했다.
+  - ready-only normal query `아기 고환 물집 아기띠`는 document 6을 rank 1, score 약 0.709로 반환했다.
+  - red-flag query `소아 호흡곤란 청색증 응급`은 retrieval을 suppress하고 `llm_executed=false`, `graph_executed=false`를 유지했다.
+  - deterministic evaluation smoke는 재색인 전 2/4 실패했으나, dataset 기준 ready 문서 1을 semantic 재색인한 뒤 4/4 통과했다.
+  - Playwright MCP에서 `http://localhost:5173` Search Verification UI가 semantic provider/model/dimensions, score/raw score, red-flag suppression을 표시함을 확인했다.
+- 남은 한계:
+  - 전체 PD000 corpus를 재색인하지 않았으므로 아직 deterministic-era vector가 섞여 있을 수 있다.
+  - `/rerank`는 여전히 기본 deterministic contract 중심이며 실제 CrossEncoder rerank 경로는 검증하지 않았다.
+  - full LangGraph StateGraph, streaming, prompt registry, document upload, auth policy, graph debug UI, query rewriting, NER는 구현하지 않았다.
+  - Playwright 콘솔에 favicon 404가 있었으나 Search Verification 동작에는 영향이 없었다.
+- 검증:
+  - `git status --short --branch`: `develop`, 기존 미추적 로컬 산출물과 이번 `.env.example` 변경 확인.
+  - `docker compose ps`: backend, frontend, embedding-service, redis, minio 실행 확인.
+  - `curl -fsSL http://127.0.0.1:8080/health`: 통과.
+  - embedding-service `/embed` fallback 허용 모드: `sentence-transformers`, fallback false 확인.
+  - embedding-service fallback 불허 모드: `sentence-transformers`, fallback false 확인.
+  - backend DB 상태 출력: PostgreSQL vendor, pgvector extension 활성화, PD000 row/status/model/dimension 분포 확인.
+  - `docker compose exec backend python manage.py migrate`: 통과, no migrations to apply.
+  - `docker compose exec -e CHAT_LLM_PROVIDER=deterministic backend pytest apps/rag apps/knowledge apps/graph apps/chat apps/evaluation`: 통과, 56 passed.
+  - `pytest tests/test_main.py -q` in `embedding-service`: 통과, 2 passed.
+  - `npm --prefix frontend run build`: 통과.
+  - Search Verification API smoke normal/red-flag: 통과.
+  - `docker compose exec backend python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000`: 통과.
+  - `docker compose exec backend python manage.py run_chat_eval --dataset hidoc-pediatric-smoke --llm-provider deterministic`: 최종 통과, 4 passed / 0 failed / 0 skipped.
+  - Playwright MCP smoke: 통과.
+  - `git diff --check`: 통과.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
