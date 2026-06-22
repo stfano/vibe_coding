@@ -19,6 +19,10 @@ services:
       VECTOR_SIMILARITY_THRESHOLD: ${VECTOR_SIMILARITY_THRESHOLD:-0.7}
       MINIO_ENDPOINT: minio:9000
       MINIO_BUCKET: ${MINIO_BUCKET:-doctor-chat-documents}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-http}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-mykor/KURE-v1}
+      EMBEDDING_TIMEOUT: ${EMBEDDING_TIMEOUT:-30}
+      RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-base}
       EMBEDDING_SERVICE_URL: http://embedding-service:8080
       OLLAMA_BASE_URL: http://ollama:11434
       CHAT_LLM_PROVIDER: ${CHAT_LLM_PROVIDER:-ollama}
@@ -54,7 +58,12 @@ services:
     build:
       context: ./embedding-service
     environment:
+      EMBEDDING_BACKEND: ${EMBEDDING_BACKEND:-sentence-transformers}
+      EMBEDDING_SEMANTIC_FALLBACK: ${EMBEDDING_SEMANTIC_FALLBACK:-true}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-mykor/KURE-v1}
+      VECTOR_DIMENSIONS: ${VECTOR_DIMENSIONS:-1024}
+      RERANKER_BACKEND: ${RERANKER_BACKEND:-deterministic}
+      RERANKER_SEMANTIC_FALLBACK: ${RERANKER_SEMANTIC_FALLBACK:-true}
       RERANKER_MODEL: ${RERANKER_MODEL:-BAAI/bge-reranker-base}
     ports:
       - "8080:8080"

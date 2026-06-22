@@ -6,7 +6,10 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 COPY requirements.txt .
+COPY requirements-semantic.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+ARG INSTALL_SEMANTIC_EMBEDDINGS=true
+RUN if [ "$INSTALL_SEMANTIC_EMBEDDINGS" = "true" ]; then pip install --no-cache-dir -r requirements-semantic.txt; fi
 
 COPY app ./app
 

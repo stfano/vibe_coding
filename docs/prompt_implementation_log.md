@@ -371,3 +371,61 @@ another language. Older entries are preserved as originally written.
   - 문서/분석 로그 변경만 있으므로 `git diff --check`를 실행한다.
 - 커밋/푸시:
   - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
+## 2026-06-22 16:27:17 KST - semantic embedding 기반 검색 품질 vertical slice
+
+- 브랜치: `develop`
+- 사용자 요청: "다음 vertical slice로 검색 품질을 개선하고 deterministic token-hash embedding 검색을 실제 semantic embedding 기반 검색으로 전환해줘."
+- 이번 턴 변경 파일:
+  - `.env.example`
+  - `README.md`
+  - `backend/apps/knowledge/services.py`
+  - `backend/apps/knowledge/tests/test_review_api.py`
+  - `backend/apps/rag/embeddings.py`
+  - `backend/apps/rag/retrieval.py`
+  - `backend/apps/rag/tests/test_embeddings_and_retrieval.py`
+  - `docker-compose.yml`
+  - `docs/architecture.md`
+  - `docs/local_dev.md`
+  - `embedding-service/Dockerfile`
+  - `embedding-service/app/__init__.py`
+  - `embedding-service/app/main.py`
+  - `embedding-service/requirements.txt`
+  - `embedding-service/requirements-semantic.txt`
+  - `embedding-service/tests/test_main.py`
+  - `frontend/src/SearchVerificationPanel.tsx`
+  - `frontend/src/api.ts`
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - embedding-service에 sentence-transformers 기반 `/embed` 경로와 deterministic fallback을 추가했다.
+  - embedding-service에 `/rerank` API contract와 deterministic rerank fallback을 추가했다.
+  - Docker 빌드에서 semantic dependency를 선택 설치하며 CPU-only torch wheel을 사용하도록 고정했다.
+  - backend `HttpEmbeddingAdapter`가 `/embed` 응답의 provider, model, dimensions, fallback metadata를 기록하도록 했다.
+  - Search Verification API가 `llm_executed=false`, `graph_executed=false`를 유지하면서 retrieval metadata, raw score, optional rerank score를 반환하도록 했다.
+  - Search Verification UI가 embedding provider/model/dimensions, vector metric, rerank 상태, score/raw score를 표시하도록 했다.
+- 실행 시점 기준 동작:
+  - Docker Compose health 기준 embedding-service는 `EMBEDDING_BACKEND=sentence-transformers`, backend는 embedding service configured 상태로 기동된다.
+  - 현재 로컬 Compose DB는 SQLite fallback으로 동작해 Search Verification runtime smoke는 sqlite 전용 deterministic adapter를 사용했다.
+  - 현재 DB에는 HiDoc PD000 기준 ready 문서 15건, needs_review 문서 69건, disabled 문서 16건, chunk 115건이 있었다.
+  - Search Verification API smoke는 ready-only 검색 결과와 score/raw score/retrieval metadata를 반환했고, red-flag query는 retrieval을 suppress했다.
+  - Playwright MCP에서 `http://localhost:5173` Search Verification 결과에 provider/model/dimensions, metric, score/raw score가 표시됨을 확인했다.
+- 남은 한계:
+  - query rewriting, NER, full LangGraph StateGraph 리팩터링, streaming chat, prompt registry, document upload, auth policy, graph debug UI는 구현하지 않았다.
+  - `/rerank`는 API contract와 deterministic fallback 중심이며 실제 CrossEncoder 모델은 optional 설정이다.
+  - 로컬 SQLite verification smoke는 HTTP semantic provider가 아니라 deterministic adapter를 사용한다. Supabase/Postgres 경로에서는 `EMBEDDING_PROVIDER=http`와 embedding-service를 통해 semantic embedding provider를 사용한다.
+  - `mykor/KURE-v1` 최초 모델 로딩은 로컬 네트워크/캐시 상태에 따라 오래 걸릴 수 있어 직접 semantic 모델 로딩 smoke는 완료하지 않았다.
+- 검증:
+  - `pytest tests/test_main.py -q` in `embedding-service`: 통과, 2 passed.
+  - `PYTHONPATH=/tmp/doctor_llm_pydeps pytest apps/rag/tests/test_embeddings_and_retrieval.py apps/knowledge/tests/test_review_api.py -q`: 통과, 15 passed.
+  - `docker compose --profile llm up -d --build`: 통과. 최초 CUDA 포함 torch 설치 시도는 중단하고 CPU-only torch requirements로 수정 후 재실행했다.
+  - `docker compose exec backend python manage.py migrate`: 통과, no migrations to apply.
+  - `docker compose exec -e CHAT_LLM_PROVIDER=deterministic backend pytest apps/rag apps/knowledge apps/graph apps/chat`: 통과, 49 passed.
+  - `npm --prefix frontend run build`: 통과.
+  - `curl -fsSL http://127.0.0.1:8080/health`: 통과.
+  - `curl -fsSL http://127.0.0.1:8000/api/health/`: 통과.
+  - Search Verification API smoke: 통과, `llm_executed=false`, `graph_executed=false`, retrieval metadata와 score 반환 확인.
+  - red-flag Search Verification API smoke: 통과, `source_status=retrieval_suppressed`, retrieval `not_executed` 확인.
+  - Playwright MCP browser smoke for `http://localhost:5173`: 통과.
+  - `git diff --check`: 통과.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.

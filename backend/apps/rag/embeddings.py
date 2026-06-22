@@ -21,6 +21,7 @@ class EmbeddingError(RuntimeError):
 
 
 class EmbeddingAdapter(Protocol):
+    provider_name: str
     model_name: str
     dimensions: int
 
@@ -54,6 +55,7 @@ def vector_to_pgvector(values: list[float]) -> str:
 class DeterministicEmbeddingAdapter:
     dimensions: int
     model_name: str = "deterministic-token-hash"
+    provider_name: str = "deterministic"
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         return [self._embed_one(text) for text in texts]
@@ -75,6 +77,11 @@ class HttpEmbeddingAdapter:
     model_name: str
     dimensions: int
     timeout: float = 15.0
+    provider_name: str = "http"
+    response_provider: str = ""
+    response_model_name: str = ""
+    response_dimensions: int = 0
+    fallback_used: bool = False
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
         payload = build_embedding_payload(texts, model=self.model_name, dimensions=self.dimensions)
@@ -93,10 +100,24 @@ class HttpEmbeddingAdapter:
         embeddings = body.get("embeddings")
         if not isinstance(embeddings, list):
             raise EmbeddingError("embedding service response missing embeddings")
+        self._validate_embeddings(embeddings, expected_count=len(texts))
+        self.response_provider = str(body.get("provider") or self.provider_name)
+        self.response_model_name = str(body.get("model") or self.model_name)
+        self.response_dimensions = int(body.get("dimensions") or self.dimensions)
+        self.fallback_used = bool(body.get("fallback_used", False))
         return embeddings
 
     def embed_query(self, query: str) -> list[float]:
         return self.embed_texts([query])[0]
+
+    def _validate_embeddings(self, embeddings: list[object], *, expected_count: int) -> None:
+        if len(embeddings) != expected_count:
+            raise EmbeddingError("embedding service response count did not match request")
+        for embedding in embeddings:
+            if not isinstance(embedding, list) or len(embedding) != self.dimensions:
+                raise EmbeddingError("embedding service response dimensions did not match request")
+            if not all(isinstance(value, int | float) for value in embedding):
+                raise EmbeddingError("embedding service response included non-numeric values")
 
 
 def get_embedding_adapter(
@@ -119,3 +140,13 @@ def get_embedding_adapter(
     if resolved_provider == "deterministic":
         return DeterministicEmbeddingAdapter(dimensions=resolved_dimensions, model_name=resolved_model)
     raise EmbeddingError(f"unsupported embedding provider: {resolved_provider}")
+
+
+def embedding_adapter_metadata(adapter: EmbeddingAdapter) -> dict[str, object]:
+    return {
+        "embedding_transport": getattr(adapter, "provider_name", adapter.__class__.__name__),
+        "embedding_provider": getattr(adapter, "response_provider", "") or getattr(adapter, "provider_name", "unknown"),
+        "embedding_model": getattr(adapter, "response_model_name", "") or adapter.model_name,
+        "embedding_dimensions": getattr(adapter, "response_dimensions", 0) or adapter.dimensions,
+        "embedding_fallback_used": bool(getattr(adapter, "fallback_used", False)),
+    }

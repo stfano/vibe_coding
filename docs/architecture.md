@@ -9,7 +9,7 @@ Milestone 2 established the local development shape and the first backend operat
 - `supabase postgres`: managed Postgres for deployed or shared environments, configured through `DATABASE_URL` or `SUPABASE_DATABASE_URL`.
 - `redis`: future cache and background job broker.
 - `minio`: future S3-compatible document storage.
-- `embedding-service`: FastAPI scaffold with health and deterministic `/embed` endpoint; future sentence-transformers embeddings and reranking can replace the deterministic adapter.
+- `embedding-service`: FastAPI service with health, `/embed`, and `/rerank` contract. It can use sentence-transformers for semantic embeddings when available and keeps deterministic fallback for tests and offline local runs.
 - `ollama`: optional local LLM runtime behind the `llm` Compose profile.
 
 MVP vector retrieval should use Supabase/Postgres with `pgvector`. This keeps
@@ -64,9 +64,12 @@ records each run in `IndexJob`. The first supported retrieval surface is the
 `search_knowledge` management command, which returns chunk previews and
 citations only.
 
-Use deterministic embeddings for repeatable tests and early local runs. Use the
-HTTP embedding adapter only when `EMBEDDING_PROVIDER=http` and
-`EMBEDDING_SERVICE_URL` points at a running embedding service.
+Use deterministic embeddings for repeatable tests and offline fallback. Use the
+HTTP embedding adapter when `EMBEDDING_PROVIDER=http` and
+`EMBEDDING_SERVICE_URL` points at a running embedding service. Retrieval
+verification returns embedding transport, provider, model, dimensions, vector
+metric, fallback state, and raw score metadata so operators can tell whether a
+search used deterministic fallback or semantic embeddings.
 
 Retrieval is gated by document review status. Default retrieval includes only
 `KnowledgeDocument.status = ready`; `needs_review` can be included only in admin

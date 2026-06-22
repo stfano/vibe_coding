@@ -25,6 +25,27 @@ fine for non-RAG backend work and unit tests, but document embedding search
 requires `DATABASE_URL` or `SUPABASE_DATABASE_URL` to point at a Postgres
 database with the `vector` extension enabled.
 
+Search quality depends on the configured embedding provider:
+
+```bash
+EMBEDDING_PROVIDER=http
+EMBEDDING_SERVICE_URL=http://embedding-service:8080
+EMBEDDING_BACKEND=sentence-transformers
+EMBEDDING_MODEL=mykor/KURE-v1
+VECTOR_DIMENSIONS=1024
+EMBEDDING_SEMANTIC_FALLBACK=true
+```
+
+The embedding service exposes `/embed` and returns provider, model, dimensions,
+and fallback metadata with each response. If sentence-transformers or the
+configured model is unavailable and `EMBEDDING_SEMANTIC_FALLBACK=true`, it
+falls back to deterministic embeddings so local tests can still run. For a local
+Python process that should load real sentence-transformers models, install the
+optional semantic dependencies from `embedding-service/requirements-semantic.txt`.
+The `/rerank` endpoint is available as an API contract; deterministic reranking
+is the default local backend unless `RERANKER_BACKEND=sentence-transformers` is
+configured with the optional model dependencies.
+
 ## Start The Stack
 
 ```bash

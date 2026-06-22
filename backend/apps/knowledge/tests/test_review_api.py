@@ -117,6 +117,14 @@ def test_retrieval_verification_search_returns_ready_documents_only_by_default(i
     result = response.json()["data"]["results"][0]
     assert result["document_status"] == KnowledgeDocument.Status.READY
     assert result["citation"]["external_question_id"] == "C1000"
+    assert result["raw_score"] == result["score"]
+    assert result["rerank_score"] is None
+    retrieval = response.json()["data"]["retrieval"]
+    assert retrieval["embedding_provider"] == "deterministic"
+    assert retrieval["embedding_model"] == "test-embedding"
+    assert retrieval["embedding_dimensions"] == 8
+    assert retrieval["vector_metric"] == "cosine"
+    assert retrieval["rerank_enabled"] is False
 
 
 @pytest.mark.django_db
@@ -154,3 +162,5 @@ def test_retrieval_verification_suppresses_red_flag_queries_from_hidoc(indexed_d
     assert body["source_status"] == "retrieval_suppressed"
     assert body["llm_executed"] is False
     assert body["graph_executed"] is False
+    assert body["retrieval"]["embedding_provider"] == "not_executed"
+    assert body["retrieval"]["rerank_enabled"] is False

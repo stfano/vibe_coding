@@ -36,6 +36,8 @@ export function SearchVerificationPanel() {
     }
   }
 
+  const retrieval = result?.retrieval ?? result?.retrieval_metadata;
+
   return (
     <section className="panel ops-panel">
       <h2>Search Verification</h2>
@@ -78,6 +80,21 @@ export function SearchVerificationPanel() {
             <span>{result.source_status.replace("_", " ")}</span>
             <span>llm: {result.llm_executed ? "executed" : "not executed"}</span>
             <span>graph: {result.graph_executed ? "executed" : "not executed"}</span>
+            {retrieval && (
+              <>
+                <span>
+                  embed: {retrieval.embedding_provider ?? "unknown"} /{" "}
+                  {retrieval.embedding_model || "unknown"} /{" "}
+                  {retrieval.embedding_dimensions ?? "?"}d
+                </span>
+                <span>metric: {retrieval.vector_metric ?? "unknown"}</span>
+                <span>
+                  rerank:{" "}
+                  {retrieval.rerank_enabled ? retrieval.rerank_model ?? "enabled" : "off"}
+                </span>
+                {retrieval.embedding_fallback_used && <span>embedding fallback</span>}
+              </>
+            )}
             {result.safety_flags.map((flag) => (
               <span key={flag}>{flag.replace("_", " ")}</span>
             ))}
@@ -94,6 +111,8 @@ export function SearchVerificationPanel() {
                 <div className="message-meta">
                   <span>rank {item.rank}</span>
                   <span>score {item.score.toFixed(3)}</span>
+                  {item.raw_score != null && <span>raw {item.raw_score.toFixed(3)}</span>}
+                  {item.rerank_score != null && <span>rerank {item.rerank_score.toFixed(3)}</span>}
                   <span>{item.document_status.replace("_", " ")}</span>
                 </div>
                 <p>{item.preview}</p>

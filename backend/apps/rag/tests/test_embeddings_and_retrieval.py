@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from apps.knowledge.indexing import ExternalQnaIndexer
 from apps.knowledge.models import ExternalQnaRecord, KnowledgeDocument
-from apps.rag.embeddings import DeterministicEmbeddingAdapter, build_embedding_payload
+from apps.rag.embeddings import DeterministicEmbeddingAdapter, HttpEmbeddingAdapter, build_embedding_payload
 from apps.rag.retrieval import search_knowledge
 
 
@@ -51,6 +51,36 @@ def test_deterministic_embedding_adapter_returns_stable_dimensions():
 
     assert len(first) == 8
     assert first == second
+
+
+def test_http_embedding_adapter_records_response_metadata(monkeypatch):
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return (
+                b'{"provider":"sentence-transformers","model":"semantic-test",'
+                b'"dimensions":3,"embeddings":[[0.1,0.2,0.3]]}'
+            )
+
+    monkeypatch.setattr("apps.rag.embeddings.urlopen", lambda request, timeout: FakeResponse())
+    adapter = HttpEmbeddingAdapter(
+        service_url="http://embedding-service:8080",
+        model_name="requested-model",
+        dimensions=3,
+    )
+
+    embeddings = adapter.embed_texts(["semantic query"])
+
+    assert embeddings == [[0.1, 0.2, 0.3]]
+    assert adapter.provider_name == "http"
+    assert adapter.response_provider == "sentence-transformers"
+    assert adapter.response_model_name == "semantic-test"
+    assert adapter.response_dimensions == 3
 
 
 @pytest.mark.django_db

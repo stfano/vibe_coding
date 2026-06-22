@@ -28,7 +28,7 @@ Medical answer generation must remain source-grounded, cite retrieved evidence, 
   - Supabase Postgres via `DATABASE_URL` or `SUPABASE_DATABASE_URL`
   - Redis
   - MinIO
-  - FastAPI embedding-service scaffold
+  - FastAPI embedding-service with `/embed` and optional `/rerank` contract
   - optional Ollama profile
 - Django/DRF backend with:
   - standard API response envelope
@@ -42,7 +42,7 @@ Medical answer generation must remain source-grounded, cite retrieved evidence, 
   - HiDoc answer-level Q&A ingestion into `ExternalQnaRecord`
   - Q&A-to-knowledge indexing into documents/chunks/index jobs
   - knowledge document review gate for `needs_review`, `ready`, and `disabled`
-  - deterministic and HTTP embedding adapter boundaries
+  - deterministic and HTTP embedding adapters with retrieval metadata
   - deterministic and Ollama-compatible local chat LLM adapter boundaries
   - chunk retrieval command and verification API
   - Django Admin registration for active models
@@ -71,7 +71,7 @@ Medical answer generation must remain source-grounded, cite retrieved evidence, 
 - Full LangGraph runtime integration beyond the current graph-compatible router
 - LangChain retrievers and prompt templates inside chat
 - document upload and parsing
-- production embedding/reranking models beyond deterministic scaffold
+- query rewriting, NER, and production-grade reranker orchestration
 - prompt registry/versioning
 - streaming chat over SSE or WebSocket
 - graph debug trace viewer
@@ -95,7 +95,7 @@ Medical answer generation must remain source-grounded, cite retrieved evidence, 
 │       ├── evaluation/      # golden-set evaluation datasets, runs, and APIs
 │       └── adminx/          # future admin-facing APIs
 ├── frontend/                # React + Vite + TypeScript UI
-├── embedding-service/       # FastAPI scaffold for embeddings/reranking
+├── embedding-service/       # FastAPI embedding/reranking service
 ├── docs/                    # architecture, safety, local dev notes
 ├── apps/README.md           # app map
 ├── doctoer_chat.md          # project kickoff prompt and roadmap

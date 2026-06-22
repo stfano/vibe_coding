@@ -20,6 +20,8 @@ class KnowledgeSearchResult:
     text_preview: str
     citation: dict[str, Any]
     text: str = ""
+    raw_score: float | None = None
+    rerank_score: float | None = None
 
 
 def search_knowledge(
@@ -143,6 +145,8 @@ def _search_postgres(
             text_preview=row[4],
             citation=_normalize_citation(row[5]),
             text=row[6],
+            raw_score=float(row[3]),
+            rerank_score=None,
         )
         for row in rows
     ]
@@ -157,6 +161,8 @@ def _build_result(chunk: KnowledgeChunk, *, score: float) -> KnowledgeSearchResu
         text_preview=chunk.text[:240],
         citation=chunk.citation_metadata or {},
         text=chunk.text,
+        raw_score=round(score, 6),
+        rerank_score=None,
     )
 
 

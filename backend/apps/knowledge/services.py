@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 
 from apps.knowledge.models import KnowledgeChunk, KnowledgeDocument
 from apps.knowledge.safety import detect_red_flag_query
-from apps.rag.embeddings import DeterministicEmbeddingAdapter
+from apps.rag.embeddings import DeterministicEmbeddingAdapter, embedding_adapter_metadata, get_embedding_adapter
 from apps.rag.retrieval import search_knowledge
 
 
@@ -90,6 +90,7 @@ def verify_knowledge_search(
 ) -> dict[str, Any]:
     red_flags = detect_red_flag_query(query)
     if red_flags:
+        retrieval_metadata = _not_executed_retrieval_metadata()
         return {
             "query": query,
             "source_status": "retrieval_suppressed",
@@ -97,24 +98,35 @@ def verify_knowledge_search(
             "red_flag_terms": red_flags,
             "llm_executed": False,
             "graph_executed": False,
+            "retrieval": retrieval_metadata,
+            "retrieval_metadata": retrieval_metadata,
             "results": [],
         }
 
+    adapter = _verification_embedding_adapter(source, department_code, include_needs_review) or get_embedding_adapter()
     results = search_knowledge(
         query,
         top_k=top_k,
         source=source,
         department_code=department_code,
         include_needs_review=include_needs_review,
-        embedding_adapter=_verification_embedding_adapter(source, department_code, include_needs_review),
+        embedding_adapter=adapter,
     )
     source_status = "retrieved" if results else "no_matching_chunks"
+    retrieval_metadata = {
+        **embedding_adapter_metadata(adapter),
+        "vector_metric": "cosine",
+        "rerank_enabled": False,
+        "rerank_model": None,
+    }
     return {
         "query": query,
         "source_status": source_status,
         "safety_flags": [],
         "llm_executed": False,
         "graph_executed": False,
+        "retrieval": retrieval_metadata,
+        "retrieval_metadata": retrieval_metadata,
         "results": [
             {
                 "rank": index,
@@ -122,6 +134,8 @@ def verify_knowledge_search(
                 "document_id": result.document_id,
                 "document_status": result.document_status,
                 "score": result.score,
+                "raw_score": result.raw_score if result.raw_score is not None else result.score,
+                "rerank_score": result.rerank_score,
                 "preview": result.text_preview,
                 "citation": result.citation,
             }
@@ -193,3 +207,16 @@ def _verification_embedding_adapter(source: str | None, department_code: str | N
         dimensions=chunk.embedding_dimensions,
         model_name=chunk.embedding_model or "deterministic-token-hash",
     )
+
+
+def _not_executed_retrieval_metadata() -> dict[str, object]:
+    return {
+        "embedding_transport": "not_executed",
+        "embedding_provider": "not_executed",
+        "embedding_model": "",
+        "embedding_dimensions": 0,
+        "embedding_fallback_used": False,
+        "vector_metric": "cosine",
+        "rerank_enabled": False,
+        "rerank_model": None,
+    }

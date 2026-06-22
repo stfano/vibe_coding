@@ -105,12 +105,16 @@ export type SearchVerificationData = {
   red_flag_terms?: string[];
   llm_executed: boolean;
   graph_executed: boolean;
+  retrieval?: SearchRetrievalMetadata;
+  retrieval_metadata?: SearchRetrievalMetadata;
   results: Array<{
     rank: number;
     chunk_id: number;
     document_id: number;
     document_status: string;
     score: number;
+    raw_score?: number | null;
+    rerank_score?: number | null;
     preview: string;
     citation: {
       title?: string;
@@ -123,6 +127,17 @@ export type SearchVerificationData = {
       chunk_index?: number;
     };
   }>;
+};
+
+export type SearchRetrievalMetadata = {
+  embedding_transport?: string;
+  embedding_provider?: string;
+  embedding_model?: string;
+  embedding_dimensions?: number;
+  embedding_fallback_used?: boolean;
+  vector_metric?: string;
+  rerank_enabled?: boolean;
+  rerank_model?: string | null;
 };
 
 export type EvaluationRunSummary = {
