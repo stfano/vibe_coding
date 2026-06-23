@@ -496,3 +496,41 @@ another language. Older entries are preserved as originally written.
   - `git diff --check`: 통과.
 - 커밋/푸시:
   - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
+## 2026-06-23 10:18:26 KST - LangGraph StateGraph chat workflow 전환
+
+- 브랜치: `develop`
+- 사용자 요청: "manual chat safety/RAG router를 실제 LangGraph StateGraph runtime으로 교체하고 기존 run_chat_safety_graph 계약과 chat/evaluation 응답 shape를 유지해줘."
+- 이번 턴 변경 파일:
+  - `backend/apps/graph/state.py`
+  - `backend/apps/graph/nodes.py`
+  - `backend/apps/graph/workflow.py`
+  - `backend/apps/graph/router.py`
+  - `backend/apps/graph/tests/test_chat_safety_router.py`
+  - `backend/apps/evaluation/services.py`
+  - `backend/apps/chat/tests/test_chat_api.py`
+  - `backend/apps/evaluation/tests/test_evaluation_workbench.py`
+  - `docs/architecture.md`
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - `run_chat_safety_graph()` public entrypoint는 유지하면서 내부 실행을 LangGraph `StateGraph` workflow로 전환했다.
+  - typed graph state, small node functions, workflow builder를 `apps.graph` 하위 모듈로 분리했다.
+  - graph metadata에 `runtime=langgraph_stategraph`, graph path, node summaries, model/prompt metadata, retrieved source IDs, sanitized error summary를 포함한다.
+  - retrieval/LLM node 실패를 raw exception 전파 대신 `source_status=graph_error` 안전 fallback으로 변환한다.
+  - red-flag, no-ready, low-confidence branch는 LLM을 호출하지 않고, retrieved branch만 LLM을 호출하도록 테스트로 고정했다.
+  - ready 문서가 여러 건일 때 evaluation smoke dataset이 실제 retrieval 가능한 ready 문서를 선택하도록 seed 로직을 보강했다.
+- 실행 시점 기준 동작:
+  - chat API와 evaluation 서비스는 기존 응답 shape를 유지하면서 새 LangGraph runtime metadata를 저장한다.
+  - ready-only retrieval gate, citation metadata, low-confidence gate, red-flag urgent escalation, deterministic evaluation path가 유지된다.
+- 남은 한계:
+  - streaming/SSE, frontend graph debug UI, prompt registry, document upload/parsing, query rewrite/NER, real reranker integration은 이번 범위가 아니다.
+  - graph node error summary는 node 이름 단위의 sanitize된 요약만 제공하며 provider별 상세 진단은 아직 별도 operational log로 확장하지 않았다.
+- 검증:
+  - `env PYTHONDONTWRITEBYTECODE=1 CHAT_LLM_PROVIDER=deterministic pytest apps/graph/tests/test_chat_safety_router.py -q -p no:cacheprovider`: 통과, 7 passed.
+  - `env PYTHONDONTWRITEBYTECODE=1 CHAT_LLM_PROVIDER=deterministic pytest apps/graph apps/chat apps/evaluation apps/rag -q -p no:cacheprovider`: 통과, 31 passed.
+  - `env PYTHONDONTWRITEBYTECODE=1 CHAT_LLM_PROVIDER=deterministic python manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000`: 실패, 현재 shell에 `python` 실행 파일이 없어 `python3`로 재실행했다.
+  - `env PYTHONDONTWRITEBYTECODE=1 CHAT_LLM_PROVIDER=deterministic python3 manage.py seed_eval_cases --dataset hidoc-pediatric-smoke --source hidoc --department-code PD000`: 통과.
+  - `env PYTHONDONTWRITEBYTECODE=1 CHAT_LLM_PROVIDER=deterministic python3 manage.py run_chat_eval --dataset hidoc-pediatric-smoke --llm-provider deterministic`: 최초 실행은 기존 evaluation seed drift로 2/4 실패했고, seed 로직 보강 후 최종 통과, 4 passed / 0 failed / 0 skipped.
+  - `git diff --check`: 통과.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.

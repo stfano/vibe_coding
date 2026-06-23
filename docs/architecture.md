@@ -35,15 +35,15 @@ Active model apps:
 - `apps.chat`: chat session and message persistence.
 - `apps.knowledge`: external Q&A records, knowledge sources, documents, chunks, and index jobs.
 - `apps.rag`: embedding adapter boundary, retrieval service, and local chat LLM adapters.
-- `apps.graph`: minimal graph-compatible chat router.
+- `apps.graph`: LangGraph `StateGraph` chat safety/RAG workflow.
 - `apps.evaluation`: golden-set chat/RAG smoke datasets, runs, and results.
 
 Non-streaming APIs should use the standard response envelope in `apps.common.responses`.
 
-The chat endpoint executes a minimal graph-compatible safety router. It validates
-input, suppresses red-flag queries before retrieval, searches only `ready`
-documents, chooses a source status, synthesizes a source-grounded answer only
-when source status is `retrieved`, and persists graph metadata.
+The chat endpoint executes a LangGraph `StateGraph` safety/RAG workflow. It
+validates input, suppresses red-flag queries before retrieval, searches only
+`ready` documents, chooses a source status, synthesizes a source-grounded answer
+only when source status is `retrieved`, and persists graph metadata.
 
 ## Database Configuration
 
@@ -79,7 +79,12 @@ an LLM or synthesize medical guidance.
 
 ## Chat Safety Router Slice
 
-`apps.graph.router` provides the first chat orchestration layer:
+`apps.graph.router` is the stable public entrypoint for chat orchestration, and
+delegates execution to a compiled LangGraph `StateGraph` workflow in
+`apps.graph.workflow`. The graph uses typed state from `apps.graph.state` and
+small node functions from `apps.graph.nodes`.
+
+The active nodes are:
 
 - `validate_input`
 - `detect_red_flags`
@@ -89,11 +94,16 @@ an LLM or synthesize medical guidance.
 - `format_response`
 - `persist_metadata`
 
-The router returns graph path, node summaries, source status, safety flags,
-citations, retrieved source IDs, model metadata, prompt version, and
-`llm_executed`. Red-flag queries return urgent escalation guidance without
-retrieval. No ready documents or low-confidence retrieval returns a no-source
-fallback. These fallback branches do not call the LLM.
+The workflow returns graph runtime metadata (`runtime=langgraph_stategraph`),
+graph path, node summaries, source status, safety flags, citations, retrieved
+source IDs, model metadata, prompt version, error summary, and `llm_executed`.
+Red-flag queries return urgent escalation guidance without retrieval. No ready
+documents or low-confidence retrieval returns a safe fallback. These fallback
+branches do not call the LLM.
+
+Retrieval or LLM node failures are converted into a sanitized `graph_error`
+branch. The response avoids raw provider exception details and keeps only a
+short node-level error summary for operator debugging.
 
 When source status is `retrieved`, the router builds a source-grounded prompt
 payload containing only the user query, retrieved ready chunk text, and citation
@@ -104,4 +114,4 @@ local generation or a deterministic adapter for tests.
 
 - Production medical answer workflow beyond source-grounded local synthesis
 - Document upload and parsing
-- Full LangGraph runtime integration
+- Streaming chat and graph debug UI

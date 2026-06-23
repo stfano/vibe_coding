@@ -11,6 +11,7 @@ from apps.graph.router import run_chat_safety_graph
 from apps.knowledge.models import KnowledgeChunk, KnowledgeDocument
 from apps.rag.embeddings import DeterministicEmbeddingAdapter
 from apps.rag.llms import get_chat_llm_adapter
+from apps.rag.retrieval import search_knowledge
 
 
 DEFAULT_DATASET_VERSION = "v1"
@@ -40,6 +41,8 @@ def seed_hidoc_smoke_dataset(
     )
     promoted_document_id = None
     ready_document = _find_ready_document(source=source, department_code=department_code)
+    if ready_document is not None:
+        ready_document = _find_retrievable_ready_document(source=source, department_code=department_code) or ready_document
     if ready_document is None and promote_one_ready_for_local_smoke:
         candidate = _find_review_document(source=source, department_code=department_code)
         if candidate is not None:
@@ -316,6 +319,28 @@ def _find_ready_document(*, source: str, department_code: str) -> KnowledgeDocum
         .order_by("id")
         .first()
     )
+
+
+def _find_retrievable_ready_document(*, source: str, department_code: str) -> KnowledgeDocument | None:
+    candidates = list(
+        KnowledgeDocument.objects.select_related("source", "external_qna_record")
+        .filter(source__key=source, department_code=department_code, status=KnowledgeDocument.Status.READY)
+        .order_by("id")[:25]
+    )
+    for candidate in candidates:
+        query = _query_for_document(candidate)
+        if not query:
+            continue
+        results = search_knowledge(
+            query,
+            top_k=5,
+            source=source,
+            department_code=department_code,
+            include_needs_review=False,
+        )
+        if candidate.id in {result.document_id for result in results}:
+            return candidate
+    return None
 
 
 def _find_review_document(*, source: str, department_code: str) -> KnowledgeDocument | None:

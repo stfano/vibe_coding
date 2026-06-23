@@ -52,6 +52,7 @@ def test_chat_endpoint_runs_graph_and_returns_safe_no_source_fallback():
     assert body["data"]["source_status"] == "no_matching_ready_documents"
     assert body["data"]["citations"] == []
     assert body["data"]["graph"]["executed"] is True
+    assert body["data"]["graph"]["runtime"] == "langgraph_stategraph"
     assert body["data"]["llm_executed"] is False
     assert body["data"]["graph"]["path"] == [
         "validate_input",
@@ -75,7 +76,9 @@ def test_chat_endpoint_runs_graph_and_returns_safe_no_source_fallback():
     assert messages[1].message_type == "graph_no_source"
     assert "no_ready_documents" in messages[1].safety_flags
     assert messages[1].metadata["graph"]["executed"] is True
-    assert ChatLog.objects.filter(session=session, event="graph_chat_response").exists()
+    assert messages[1].metadata["graph"]["runtime"] == "langgraph_stategraph"
+    chat_log = ChatLog.objects.get(session=session, event="graph_chat_response")
+    assert chat_log.metadata["graph"]["runtime"] == "langgraph_stategraph"
 
 
 @pytest.mark.django_db

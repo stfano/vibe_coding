@@ -12,6 +12,7 @@ from apps.evaluation.services import run_evaluation_dataset, seed_hidoc_smoke_da
 from apps.knowledge.indexing import ExternalQnaIndexer
 from apps.knowledge.models import ExternalQnaRecord, KnowledgeDocument
 from apps.rag.embeddings import DeterministicEmbeddingAdapter
+from apps.rag.retrieval import KnowledgeSearchResult
 
 
 @pytest.fixture
@@ -29,6 +30,35 @@ def ready_hidoc_document() -> KnowledgeDocument:
         question_title="아기 고환 물집 평가",
         question_body="아기띠 후 고환에 물집처럼 보이는 증상이 있습니다.",
         answer_body="압박으로 인한 일시 변화일 수 있으나 진료를 권합니다.",
+        answerer_name="평가의",
+        answerer_title="전문의",
+        tags=["영유아"],
+        collected_at=timezone.now(),
+    )
+    ExternalQnaIndexer(
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        chunk_chars=320,
+    ).index_records(ExternalQnaRecord.objects.filter(pk=record.pk))
+    document = KnowledgeDocument.objects.get(source_external_id=record.external_id)
+    document.status = KnowledgeDocument.Status.READY
+    document.save(update_fields=["status"])
+    return document
+
+
+def _create_ready_document(*, external_id: str, question_id: str, title: str) -> KnowledgeDocument:
+    record = ExternalQnaRecord.objects.create(
+        source="hidoc",
+        external_id=external_id,
+        content_hash=f"{external_id}-hash",
+        department="소아청소년과",
+        source_department_code="PD000",
+        source_question_id=question_id,
+        source_answer_id="A100",
+        source_url=f"https://www.hidoc.co.kr/healthqna/view/{question_id}",
+        list_page=1,
+        question_title=title,
+        question_body=f"{title} 증상 관련 질문입니다.",
+        answer_body=f"{title} 관련 답변입니다.",
         answerer_name="평가의",
         answerer_title="전문의",
         tags=["영유아"],
@@ -90,6 +120,48 @@ def test_seed_hidoc_smoke_dataset_reports_ready_case_skipped_when_no_ready_docs(
 
 
 @pytest.mark.django_db
+def test_seed_hidoc_smoke_dataset_prefers_ready_document_that_retrieves_itself(monkeypatch):
+    first = _create_ready_document(external_id="hidoc:EVAL201:A100", question_id="EVAL201", title="첫 번째 문서")
+    second = _create_ready_document(external_id="hidoc:EVAL202:A100", question_id="EVAL202", title="두 번째 문서")
+
+    def fake_search_knowledge(query, **kwargs):
+        if "두 번째" in query:
+            return [
+                KnowledgeSearchResult(
+                    chunk_id=second.chunks.first().id,
+                    document_id=second.id,
+                    document_status=second.status,
+                    score=0.9,
+                    text_preview="두 번째 문서",
+                    citation=second.chunks.first().citation_metadata,
+                )
+            ]
+        return [
+            KnowledgeSearchResult(
+                chunk_id=second.chunks.first().id,
+                document_id=second.id,
+                document_status=second.status,
+                score=0.7,
+                text_preview="두 번째 문서",
+                citation=second.chunks.first().citation_metadata,
+            )
+        ]
+
+    monkeypatch.setattr("apps.evaluation.services.search_knowledge", fake_search_knowledge)
+
+    seed_hidoc_smoke_dataset(
+        dataset_name="hidoc-pediatric-smoke",
+        source="hidoc",
+        department_code="PD000",
+    )
+
+    retrieved = EvaluationCase.objects.get(case_key="hidoc-ready-retrieved")
+    assert retrieved.expected_source_document_ids == [second.id]
+    assert retrieved.query.startswith("두 번째")
+    assert first.id not in retrieved.expected_source_document_ids
+
+
+@pytest.mark.django_db
 def test_run_evaluation_dataset_persists_deterministic_results(ready_hidoc_document):
     seed_hidoc_smoke_dataset(
         dataset_name="hidoc-pediatric-smoke",
@@ -114,6 +186,7 @@ def test_run_evaluation_dataset_persists_deterministic_results(ready_hidoc_docum
     assert retrieved.llm_executed is True
     assert retrieved.model_name == "deterministic-eval-llm"
     assert retrieved.prompt_version
+    assert retrieved.graph_metadata["runtime"] == "langgraph_stategraph"
     assert retrieved.citations[0]["external_question_id"] == "EVAL100"
     assert retrieved.retrieved_source_ids == [ready_hidoc_document.id]
     assert "synthesize_answer" in retrieved.graph_path
