@@ -473,3 +473,26 @@ another language. Older entries are preserved as originally written.
   - `git diff --check`: 통과.
 - 커밋/푸시:
   - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
+## 2026-06-23 09:23:58 KST - 다음 LangGraph 구현 프롬프트 작성
+
+- 브랜치: `develop`
+- 사용자 요청: "지금 프로젝트 다음 step 프롬프트 작성해서 알려줘 mcp, sub agent, skill 적극 활용해주고 최신 프롬프트 기술도 사용해줘"
+- 이번 턴 변경 파일:
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - 필수 문서와 현재 코드 상태를 검토해 다음 구현 slice를 정리했다.
+  - Context7 MCP로 LangGraph `StateGraph` 최신 사용 방식을 확인했다.
+  - OpenAI 공식 prompt/structured output 문서를 확인해 프롬프트 구성에 명확한 목표, 범위, 출력 계약, 검증 명령, out-of-scope, self-review 지시를 반영했다.
+  - RAG/LangGraph 서브 에이전트와 frontend/ops UI 서브 에이전트를 병렬로 사용해 다음 backend slice와 후속 UI slice를 비교했다.
+- 실행 시점 기준 동작:
+  - 현재 chat path는 review-gated retrieval, semantic embedding metadata, source-grounded answer synthesis, deterministic evaluation smoke를 갖추고 있다.
+  - 핵심 남은 backend gap은 수동 `_run_node()` 기반 graph-compatible router를 실제 LangGraph `StateGraph` 런타임으로 전환하는 것이다.
+- 남은 한계:
+  - 이번 턴은 다음 구현 프롬프트 작성만 수행했고 코드 구현은 하지 않았다.
+  - UI operational trace/evaluation triage workbench는 LangGraph 전환 이후 후속 slice로 남겼다.
+- 검증:
+  - `git status --short --branch`: 통과, 기존 미추적 로컬 산출물과 이번 문서 변경 확인.
+  - `git diff --check`: 통과.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
