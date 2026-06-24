@@ -534,3 +534,26 @@ another language. Older entries are preserved as originally written.
   - `git diff --check`: 통과.
 - 커밋/푸시:
   - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
+## 2026-06-24 18:17:46 KST - 다음 구현 step 및 실행 프롬프트 정리
+
+- 브랜치: `develop`
+- 사용자 요청: "현재 나의 프로젝트에서 다음 step이 뭔지 알려주고 프롬프트를 작성하는데, 프롬프트는 llm 이 잘 이해하고 수행하기위한 최신 프롬프트 기술을 적용해서 알려줘. mcp, skill, sub agent를 적극 활용해줘"
+- 이번 턴 변경 파일:
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - 필수 문서와 현재 LangGraph/RAG/evaluation/frontend 상태를 검토해 다음 구현 우선순위를 정리했다.
+  - Context7 MCP로 LangGraph `StateGraph`의 state schema, node partial update, conditional edge 사용 방식을 확인했다.
+  - OpenAI/Anthropic/MCP 공식 문서를 참고해 목표, 범위, 성공 기준, 검증 루프, out-of-scope, sub agent 역할을 명확히 분리한 실행 프롬프트를 작성했다.
+  - RAG/LangGraph, frontend/ops UI, medical safety sub agent를 병렬로 사용해 다음 step 후보를 비교했다.
+- 실행 시점 기준 동작:
+  - chat path는 실제 LangGraph `StateGraph`, ready-only retrieval, source-grounded LLM synthesis, citation metadata, red-flag/no-ready/low-confidence fallback, deterministic evaluation smoke를 지원한다.
+  - frontend는 health, review queue, search verification, evaluation panel, 기본 chat 응답 표시를 지원한다.
+- 남은 한계:
+  - 생성된 답변이 retrieved evidence와 citation contract를 지켰는지 검증하는 post-synthesis `safety_review`/`grounding_review` node가 아직 없다.
+  - frontend graph trace panel, streaming/SSE, real reranker integration, prompt registry는 후속 slice로 남았다.
+- 검증:
+  - `git status --short --branch`: `develop`, 기존 미추적 로컬 산출물과 이번 문서 변경 예정 확인.
+  - `git diff --check`: 최종 결과는 이번 턴 최종 응답에서 보고한다.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
