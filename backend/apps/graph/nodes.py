@@ -3,6 +3,7 @@ from __future__ import annotations
 from django.db import connection
 
 from apps.graph.state import (
+    ANSWER_GROUNDING_FAILED_ANSWER,
     GRAPH_ERROR_ANSWER,
     LOW_CONFIDENCE_ANSWER,
     NO_SOURCE_ANSWER,
@@ -13,6 +14,7 @@ from apps.graph.state import (
 from apps.knowledge.models import KnowledgeChunk, KnowledgeDocument
 from apps.knowledge.safety import detect_red_flag_query
 from apps.rag.embeddings import DeterministicEmbeddingAdapter, EmbeddingAdapter
+from apps.rag.grounding import review_grounded_answer
 from apps.rag.llms import ChatLLMAdapter, build_source_grounded_prompt_payload, get_chat_llm_adapter
 from apps.rag.retrieval import search_knowledge
 
@@ -99,12 +101,42 @@ def synthesize_answer(
     }, f"generated source-grounded answer with {adapter.model_name}"
 
 
+def safety_review(state: ChatGraphState) -> tuple[dict, str]:
+    if state.get("source_status") != "retrieved" or not state.get("llm_executed"):
+        return {"answer_safety_status": "skipped"}, "answer review skipped"
+
+    prompt_payload = state.get("prompt_payload") or {}
+    contexts = prompt_payload.get("contexts") or []
+    review = review_grounded_answer(answer=state.get("answer") or "", contexts=contexts)
+    update = {
+        "answer_safety_status": review.status,
+        "answer_safety_findings": review.findings,
+        "answer_review_allowed_citation_ids": review.allowed_citation_ids,
+        "answer_review_detected_citation_ids": review.detected_citation_ids,
+        "answer_review_unknown_citation_ids": review.unknown_citation_ids,
+    }
+    if review.status == "passed":
+        return update, "answer grounding review passed"
+
+    safety_flags = state.get("safety_flags") or []
+    for finding in review.findings:
+        safety_flags = _append_unique(safety_flags, _safety_flag_for_finding(finding))
+    return {
+        **update,
+        "source_status": "answer_grounding_failed",
+        "answer": ANSWER_GROUNDING_FAILED_ANSWER,
+        "safety_flags": _append_unique(safety_flags, "answer_grounding_failed"),
+    }, "answer grounding review failed"
+
+
 def format_response(state: ChatGraphState) -> tuple[dict, str]:
     source_status = state.get("source_status")
     if source_status == "urgent_escalation":
         answer = URGENT_ESCALATION_ANSWER
     elif source_status == "low_confidence":
         answer = LOW_CONFIDENCE_ANSWER
+    elif source_status == "answer_grounding_failed":
+        answer = state.get("answer") or ANSWER_GROUNDING_FAILED_ANSWER
     elif source_status == "retrieved":
         answer = state.get("answer") or RETRIEVED_CONTEXT_ANSWER
     elif source_status == "graph_error":
@@ -126,6 +158,8 @@ def safe_graph_error_update(state: ChatGraphState, *, node_name: str) -> dict:
         "llm_executed": False,
         "model_name": None,
         "prompt_version": None,
+        "answer_safety_status": "skipped",
+        "answer_safety_findings": [],
     }
 
 
@@ -151,3 +185,13 @@ def _append_unique(values: list[str], value: str) -> list[str]:
     if value in values:
         return values
     return [*values, value]
+
+
+def _safety_flag_for_finding(finding: str) -> str:
+    return {
+        "missing_known_citation": "answer_missing_citation",
+        "unknown_citation": "answer_unknown_citation",
+        "definitive_diagnosis_language": "answer_definitive_diagnosis_language",
+        "unsupported_medication_dose": "answer_unsupported_medication_dose",
+        "unsupported_prescription_language": "answer_unsupported_prescription_language",
+    }.get(finding, f"answer_{finding}")

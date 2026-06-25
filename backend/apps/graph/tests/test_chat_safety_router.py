@@ -14,12 +14,13 @@ from apps.rag.llms import LLMResponse
 class RecordingLLMAdapter:
     model_name = "recording-llm"
 
-    def __init__(self):
+    def __init__(self, response_text: str = "생성된 근거 기반 답변입니다. Citations: GRAPH100:A100"):
         self.calls = []
+        self.response_text = response_text
 
     def generate_answer(self, payload):
         self.calls.append(payload)
-        return LLMResponse(text="생성된 근거 기반 답변입니다. [1]", model_name=self.model_name)
+        return LLMResponse(text=self.response_text, model_name=self.model_name)
 
 
 class FailingEmbeddingAdapter:
@@ -102,7 +103,7 @@ def test_chat_safety_graph_returns_ready_context_with_citations(ready_document):
     )
 
     assert result["source_status"] == "retrieved"
-    assert result["answer"] == "생성된 근거 기반 답변입니다. [1]"
+    assert result["answer"] == "생성된 근거 기반 답변입니다. Citations: GRAPH100:A100"
     assert result["llm_executed"] is True
     assert result["citations"][0]["external_question_id"] == "GRAPH100"
     assert result["retrieved_source_ids"] == [ready_document.id]
@@ -110,9 +111,95 @@ def test_chat_safety_graph_returns_ready_context_with_citations(ready_document):
     assert result["graph"]["runtime"] == "langgraph_stategraph"
     assert result["graph"]["model_name"] == "recording-llm"
     assert result["graph"]["prompt_version"]
+    assert result["graph"]["answer_safety_status"] == "passed"
+    assert result["graph"]["answer_safety_findings"] == []
     assert result["graph"]["node_summaries"]
     assert "synthesize_answer" in result["graph"]["path"]
+    assert "safety_review" in result["graph"]["path"]
     assert len(llm_adapter.calls) == 1
+
+
+@pytest.mark.django_db
+def test_chat_safety_graph_blocks_retrieved_answer_without_citation(ready_document):
+    llm_adapter = RecordingLLMAdapter(response_text="생성된 답변이지만 출처 표기가 없습니다.")
+
+    result = run_chat_safety_graph(
+        message="아기 고환 물집 아기띠",
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        llm_adapter=llm_adapter,
+    )
+
+    assert result["source_status"] == "answer_grounding_failed"
+    assert result["llm_executed"] is True
+    assert result["citations"][0]["external_question_id"] == "GRAPH100"
+    assert result["retrieved_source_ids"] == [ready_document.id]
+    assert "answer_grounding_failed" in result["safety_flags"]
+    assert result["graph"]["answer_safety_status"] == "failed"
+    assert "missing_known_citation" in result["graph"]["answer_safety_findings"]
+    assert "failed grounding checks" in result["answer"]
+    assert "출처 표기가 없습니다" not in result["answer"]
+
+
+@pytest.mark.django_db
+def test_chat_safety_graph_blocks_retrieved_answer_with_unknown_citation(ready_document):
+    llm_adapter = RecordingLLMAdapter(response_text="생성된 답변입니다. Citations: WRONG:A999")
+
+    result = run_chat_safety_graph(
+        message="아기 고환 물집 아기띠",
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        llm_adapter=llm_adapter,
+    )
+
+    assert result["source_status"] == "answer_grounding_failed"
+    assert result["llm_executed"] is True
+    assert "answer_grounding_failed" in result["safety_flags"]
+    assert result["graph"]["answer_safety_status"] == "failed"
+    assert "unknown_citation" in result["graph"]["answer_safety_findings"]
+
+
+@pytest.mark.django_db
+def test_chat_safety_graph_blocks_definitive_diagnosis_language(ready_document):
+    llm_adapter = RecordingLLMAdapter(response_text="진단됩니다. Citations: GRAPH100:A100")
+
+    result = run_chat_safety_graph(
+        message="아기 고환 물집 아기띠",
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        llm_adapter=llm_adapter,
+    )
+
+    assert result["source_status"] == "answer_grounding_failed"
+    assert "answer_definitive_diagnosis_language" in result["safety_flags"]
+    assert "definitive_diagnosis_language" in result["graph"]["answer_safety_findings"]
+
+
+@pytest.mark.django_db
+def test_chat_safety_graph_blocks_unsupported_medication_dose(ready_document):
+    llm_adapter = RecordingLLMAdapter(response_text="아세트아미노펜 10mg/kg를 하루 3회 시작하세요. Citations: GRAPH100:A100")
+
+    result = run_chat_safety_graph(
+        message="아기 고환 물집 아기띠",
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        llm_adapter=llm_adapter,
+    )
+
+    assert result["source_status"] == "answer_grounding_failed"
+    assert "answer_unsupported_medication_dose" in result["safety_flags"]
+    assert "unsupported_medication_dose" in result["graph"]["answer_safety_findings"]
+
+
+@pytest.mark.django_db
+def test_chat_safety_graph_blocks_unsupported_prescription_language(ready_document):
+    llm_adapter = RecordingLLMAdapter(response_text="항생제를 시작하세요. Citations: GRAPH100:A100")
+
+    result = run_chat_safety_graph(
+        message="아기 고환 물집 아기띠",
+        embedding_adapter=DeterministicEmbeddingAdapter(dimensions=8, model_name="test-embedding"),
+        llm_adapter=llm_adapter,
+    )
+
+    assert result["source_status"] == "answer_grounding_failed"
+    assert "answer_unsupported_prescription_language" in result["safety_flags"]
+    assert "unsupported_prescription_language" in result["graph"]["answer_safety_findings"]
 
 
 @pytest.mark.django_db
@@ -154,6 +241,7 @@ def test_chat_safety_graph_low_confidence_fallback(ready_document):
 
     assert low_confidence["source_status"] == "low_confidence"
     assert low_confidence["llm_executed"] is False
+    assert low_confidence["graph"]["answer_safety_status"] == "skipped"
     assert "low_confidence_retrieval" in low_confidence["safety_flags"]
     assert llm_adapter.calls == []
 
@@ -172,6 +260,7 @@ def test_chat_safety_graph_no_ready_docs_does_not_call_llm(ready_document):
 
     assert result["source_status"] == "no_matching_ready_documents"
     assert result["llm_executed"] is False
+    assert result["graph"]["answer_safety_status"] == "skipped"
     assert llm_adapter.calls == []
 
 

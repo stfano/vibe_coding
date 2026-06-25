@@ -91,15 +91,16 @@ The active nodes are:
 - `retrieve_ready_documents`
 - `decide_source_status`
 - `synthesize_answer`
+- `safety_review`
 - `format_response`
 - `persist_metadata`
 
 The workflow returns graph runtime metadata (`runtime=langgraph_stategraph`),
 graph path, node summaries, source status, safety flags, citations, retrieved
-source IDs, model metadata, prompt version, error summary, and `llm_executed`.
-Red-flag queries return urgent escalation guidance without retrieval. No ready
-documents or low-confidence retrieval returns a safe fallback. These fallback
-branches do not call the LLM.
+source IDs, model metadata, prompt version, answer review metadata, error
+summary, and `llm_executed`. Red-flag queries return urgent escalation guidance
+without retrieval. No ready documents or low-confidence retrieval returns a safe
+fallback. These fallback branches do not call the LLM.
 
 Retrieval or LLM node failures are converted into a sanitized `graph_error`
 branch. The response avoids raw provider exception details and keeps only a
@@ -108,7 +109,12 @@ short node-level error summary for operator debugging.
 When source status is `retrieved`, the router builds a source-grounded prompt
 payload containing only the user query, retrieved ready chunk text, and citation
 metadata. The provider-neutral LLM adapter in `apps.rag.llms` can use Ollama for
-local generation or a deterministic adapter for tests.
+local generation or a deterministic adapter for tests. After synthesis,
+`safety_review` deterministically checks that the answer cites retrieved context
+and avoids obvious unsupported diagnosis, prescription, or medication-dose
+language. Failed answer review changes `source_status` to
+`answer_grounding_failed`, preserves citations and retrieved source IDs for
+operator debugging, and returns a safe fallback instead of the generated text.
 
 ## Out Of Scope For Milestone 2
 

@@ -281,6 +281,12 @@ def _evaluate_checks(*, case: EvaluationCase, graph_result: dict[str, Any]) -> d
     }
     if case.expected_source_status == "retrieved":
         checks["citations_present_for_retrieved"] = bool(graph_result.get("citations"))
+        checks["answer_grounding_review"] = graph.get("answer_safety_status") == "passed"
+        checks["answer_review_metadata"] = (
+            bool(graph.get("answer_review_allowed_citation_ids"))
+            and bool(graph.get("answer_review_detected_citation_ids"))
+            and graph.get("answer_review_unknown_citation_ids") == []
+        )
     return checks
 
 
@@ -429,6 +435,7 @@ def _serialize_result(result: EvaluationResult) -> dict[str, Any]:
         "citations": result.citations,
         "retrieved_source_ids": result.retrieved_source_ids,
         "graph_path": result.graph_path,
+        "graph_metadata": result.graph_metadata,
         "checks": result.checks,
         "answer_preview": result.answer_preview,
         "error_summary": result.error_summary,

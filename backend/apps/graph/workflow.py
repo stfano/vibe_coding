@@ -42,6 +42,7 @@ def build_chat_workflow(
         "synthesize_answer",
         lambda state: nodes.synthesize_answer(state, llm_adapter=llm_adapter),
     ))
+    builder.add_node("safety_review", _instrumented("safety_review", nodes.safety_review))
     builder.add_node("format_response", _instrumented("format_response", nodes.format_response))
     builder.add_node("persist_metadata", _instrumented("persist_metadata", nodes.persist_metadata))
 
@@ -71,7 +72,8 @@ def build_chat_workflow(
             "format": "format_response",
         },
     )
-    builder.add_edge("synthesize_answer", "format_response")
+    builder.add_edge("synthesize_answer", "safety_review")
+    builder.add_edge("safety_review", "format_response")
     builder.add_edge("format_response", "persist_metadata")
     builder.add_edge("persist_metadata", END)
     return builder.compile()

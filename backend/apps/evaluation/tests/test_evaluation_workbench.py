@@ -187,9 +187,16 @@ def test_run_evaluation_dataset_persists_deterministic_results(ready_hidoc_docum
     assert retrieved.model_name == "deterministic-eval-llm"
     assert retrieved.prompt_version
     assert retrieved.graph_metadata["runtime"] == "langgraph_stategraph"
+    assert retrieved.graph_metadata["answer_safety_status"] == "passed"
+    assert retrieved.checks["answer_grounding_review"] is True
+    assert retrieved.checks["answer_review_metadata"] is True
+    assert retrieved.graph_metadata["answer_review_allowed_citation_ids"]
+    assert retrieved.graph_metadata["answer_review_detected_citation_ids"]
+    assert retrieved.graph_metadata["answer_review_unknown_citation_ids"] == []
     assert retrieved.citations[0]["external_question_id"] == "EVAL100"
     assert retrieved.retrieved_source_ids == [ready_hidoc_document.id]
     assert "synthesize_answer" in retrieved.graph_path
+    assert "safety_review" in retrieved.graph_path
 
 
 @pytest.mark.django_db
@@ -253,6 +260,8 @@ def test_evaluation_api_lists_datasets_and_run_details(ready_hidoc_document):
     assert detail_data["run"]["id"] == run.id
     assert len(detail_data["results"]) == 4
     assert detail_data["results"][0]["graph_path"]
+    retrieved_detail = next(result for result in detail_data["results"] if result["case_key"] == "hidoc-ready-retrieved")
+    assert retrieved_detail["graph_metadata"]["answer_safety_status"] == "passed"
 
 
 @pytest.mark.django_db

@@ -33,6 +33,10 @@ GRAPH_ERROR_ANSWER = (
     "Doctor Chat could not complete the source-grounded workflow safely. Please review the "
     "graph metadata and try again after the retrieval or model service is healthy."
 )
+ANSWER_GROUNDING_FAILED_ANSWER = (
+    "Doctor Chat retrieved approved source context, but the generated answer failed grounding checks. "
+    "Please review the cited source previews and graph metadata before using this response for clinical support."
+)
 
 
 class NodeSummary(TypedDict):
@@ -61,6 +65,11 @@ class ChatGraphState(TypedDict, total=False):
     model_name: str | None
     llm_executed: bool
     error_summary: str | None
+    answer_safety_status: str
+    answer_safety_findings: list[str]
+    answer_review_allowed_citation_ids: list[str]
+    answer_review_detected_citation_ids: list[str]
+    answer_review_unknown_citation_ids: list[str]
 
 
 def build_initial_state(
@@ -95,6 +104,11 @@ def build_initial_state(
         "model_name": None,
         "llm_executed": False,
         "error_summary": None,
+        "answer_safety_status": "skipped",
+        "answer_safety_findings": [],
+        "answer_review_allowed_citation_ids": [],
+        "answer_review_detected_citation_ids": [],
+        "answer_review_unknown_citation_ids": [],
     }
 
 
@@ -135,5 +149,10 @@ def serialize_state(state: ChatGraphState) -> dict[str, Any]:
             "prompt_version": state.get("prompt_version"),
             "llm_executed": bool(state.get("llm_executed")),
             "error_summary": state.get("error_summary"),
+            "answer_safety_status": state.get("answer_safety_status") or "skipped",
+            "answer_safety_findings": state.get("answer_safety_findings") or [],
+            "answer_review_allowed_citation_ids": state.get("answer_review_allowed_citation_ids") or [],
+            "answer_review_detected_citation_ids": state.get("answer_review_detected_citation_ids") or [],
+            "answer_review_unknown_citation_ids": state.get("answer_review_unknown_citation_ids") or [],
         },
     }

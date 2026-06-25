@@ -557,3 +557,43 @@ another language. Older entries are preserved as originally written.
   - `git diff --check`: 최종 결과는 이번 턴 최종 응답에서 보고한다.
 - 커밋/푸시:
   - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.
+
+## 2026-06-25 14:08:13 KST - post-synthesis grounding review node 구현
+
+- 브랜치: `develop`
+- 사용자 요청: "Add a deterministic post-synthesis `safety_review` / `grounding_review` node to the existing LangGraph chat workflow... 답변은 한국어로 해줘"
+- 이번 턴 변경 파일:
+  - `backend/apps/rag/grounding.py`
+  - `backend/apps/rag/tests/test_grounding.py`
+  - `backend/apps/graph/state.py`
+  - `backend/apps/graph/nodes.py`
+  - `backend/apps/graph/workflow.py`
+  - `backend/apps/graph/tests/test_chat_safety_router.py`
+  - `backend/apps/evaluation/services.py`
+  - `backend/apps/evaluation/tests/test_evaluation_workbench.py`
+  - `docs/architecture.md`
+  - `docs/medical_safety.md`
+  - `docs/local_dev.md`
+  - `docs/prompt_implementation_log.md`
+- 현재 구현 내용:
+  - `synthesize_answer` 이후 `format_response` 이전에 `safety_review` LangGraph node를 추가했다.
+  - `apps.rag.grounding`에 deterministic grounding review helper를 추가해 known citation, unknown citation, 단정적 진단 표현, unsupported dose/prescription language를 검사한다.
+  - review 실패 시 `source_status=answer_grounding_failed`, `answer_grounding_failed` 및 세부 safety flag를 저장하고, 생성 답변 대신 안전 fallback을 반환한다.
+  - graph metadata에 answer review status, findings, allowed/detected/unknown citation IDs를 저장한다.
+  - evaluation retrieved case가 grounding review 통과와 review metadata 존재를 검증하고 API 결과에 graph metadata를 포함한다.
+- 실행 시점 기준 동작:
+  - retrieved LLM 답변은 citation contract와 좁은 deterministic safety rule을 통과해야 정상 retrieved answer로 반환된다.
+  - no-ready, low-confidence, red-flag branch는 LLM을 실행하지 않고 answer review는 skipped로 남는다.
+  - LLM/retrieval error는 기존처럼 sanitized `graph_error`로 유지된다.
+- 남은 한계:
+  - regex 기반 deterministic review는 전체 임상 품질 평가가 아니며 obvious unsafe/generated addition을 막는 1차 gate다.
+  - streaming/SSE, frontend graph trace panel, real reranker integration, prompt registry는 이번 범위가 아니다.
+- 검증:
+  - RED: grounding module 부재 및 safety review metadata/status 부재로 신규 테스트 실패 확인.
+  - targeted GREEN: `env PYTHONDONTWRITEBYTECODE=1 CHAT_LLM_PROVIDER=deterministic pytest apps/rag/tests/test_grounding.py apps/graph/tests/test_chat_safety_router.py apps/evaluation/tests/test_evaluation_workbench.py -q -p no:cacheprovider` 통과, 27 passed.
+  - 최종 narrow verification: `env PYTHONDONTWRITEBYTECODE=1 CHAT_LLM_PROVIDER=deterministic pytest apps/graph apps/rag apps/evaluation apps/chat -q -p no:cacheprovider` 통과, 43 passed.
+  - `env PYTHONDONTWRITEBYTECODE=1 CHAT_LLM_PROVIDER=deterministic python3 manage.py run_chat_eval --dataset hidoc-pediatric-smoke --llm-provider deterministic`: sandbox DNS에서 Supabase host resolution 실패.
+  - 같은 evaluation command의 escalated 재실행 요청은 외부 Supabase credentials/network risk로 승인 거부되어 우회하지 않았다.
+  - `git diff --check`: 통과.
+- 커밋/푸시:
+  - 최종 커밋 해시와 push 결과는 최종 응답에서 보고한다.

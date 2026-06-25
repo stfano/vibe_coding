@@ -133,8 +133,10 @@ curl -sS -X POST http://localhost:8000/api/chat/messages/ \
 
 Retrieved responses should include `source_status: "retrieved"`,
 `llm_executed: true`, citations, `graph.model_name`, and
-`graph.prompt_version`. Red-flag, no-ready-document, and low-confidence paths
-keep `llm_executed: false`.
+`graph.prompt_version`. Retrieved responses should also include
+`graph.answer_safety_status: "passed"` after post-synthesis grounding review.
+Red-flag, no-ready-document, and low-confidence paths keep
+`llm_executed: false`.
 
 Seed and run the chat/RAG evaluation smoke dataset without crawling external
 sources:
@@ -175,8 +177,9 @@ docker compose exec backend python manage.py run_chat_eval --dataset hidoc-pedia
 Evaluation output reports `total`, `passed`, `failed`, `skipped`, model name,
 prompt version, and result IDs. A passing run means the graph returned expected
 source statuses, kept fallback branches LLM-free, and included citations where
-retrieval was expected. For the current smoke dataset, `total=4 passed=4
-failed=0 skipped=0` means ready retrieval, low-confidence fallback,
+retrieval was expected. Retrieved cases also validate answer grounding review
+metadata. For the current smoke dataset, `total=4 passed=4 failed=0 skipped=0`
+means ready retrieval, answer grounding review, low-confidence fallback,
 no-ready-doc fallback, and red-flag suppression all passed. The older
 `--promote-one-ready-for-local-smoke` seed option remains available for quick
 local experiments, but the explicit review command is preferred.
